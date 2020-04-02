@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no, width=device-width, shrink-to-fit=no">
+    <style>
+      html, body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background-color: #000;
+      }
+
+      a:link, a:visited{
+        color: #bdc3c7;
+      }
+
+    </style>
+  </head>
+
+  <body>
+
+    <div id="progress"></div>
+    
+    <script src="../node_modules/three/build/three.min.js"></script>
+    <script src="../build/panolens.js"></script>
+    <script src="PanoMoments.min.js"></script>
+
+    <script>
+      var videoInDOM = false;
+      var index = 0;
+      var identifier = {
+        moment_id: "5c95d9843c344e001f1588f6",
+        variation: 101,
+        public_api_key: "63b130be-2f20-40a2-8211-355b607f340a"
+      };
+      var panoMoment = new PanoMoments(identifier, renderCallback, readyCallback, loadedCallback);
+      var globalVideo;
+      var panorama;
+      var viewer;
+
+      window.requestAnimationFrame(animate);
+
+      function animate() {
+          index = (index + 1) % panoMoment.FrameCount;
+          panoMoment.render(index);
+          window.requestAnimationFrame(animate);
+      }
+
+      function renderCallback (video, momentData) {
+        if (!videoInDOM) {
+          videoInDOM = true;
+          document.body.appendChild(video);
+        }
+      }
+
+      function readyCallback (video, momentData) {
+        index = panoMoment.currentIndex;
+        panorama = new PANOLENS.VideoPanorama( 'asset/textures/video/ClashofClans.mp4', { autoplay: true } );
+        // panorama = new PANOLENS.VideoPanorama( video, { autoplay: true } );
+        // panorama.src = globalVideo;
+        // panorama.videoElement = globalVideo;
+        viewer = new PANOLENS.Viewer( { output: 'console' } );
+        viewer.add( panorama );
+        window.scene = viewer.scene;
+        console.log("PanoMoment Ready for Rendering");
+      }
+
+      function loadedCallback (video, momentData) {
+        console.log("PanoMoment Download Complete");
+      }
+
+    </script>
+
+  </body>
+</html>
