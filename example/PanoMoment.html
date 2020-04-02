@@ -25,47 +25,18 @@
     
     <script src="../node_modules/three/build/three.min.js"></script>
     <script src="../build/panolens.js"></script>
-    <script src="PanoMoments.min.js"></script>
 
     <script>
-      var videoInDOM = false;
-      var index = 0;
       var identifier = {
         moment_id: "5c95d9843c344e001f1588f6",
         variation: 101,
         public_api_key: "63b130be-2f20-40a2-8211-355b607f340a"
       };
-      var panoMoment = new PanoMoments(identifier, renderCallback, readyCallback, loadedCallback);
-      var panorama;
-      var viewer;
 
-      window.requestAnimationFrame(animate);
-
-      function animate() {
-          index = (index + 1) % panoMoment.FrameCount;
-          panoMoment.render(index);
-          window.requestAnimationFrame(animate);
-      }
-
-      function renderCallback (video, momentData) {
-
-      }
-
-      function readyCallback (video, momentData) {
-        var myJSON = JSON.stringify(momentData);
-
-        index = panoMoment.currentIndex;
-        panorama = new PANOLENS.PanoMomentPanorama( video );
-        viewer = new PANOLENS.Viewer( { output: 'console' } );
-        viewer.add( panorama );
-        window.scene = viewer.scene;
-        console.log("PanoMoment Ready for Rendering. MomentData: " + myJSON);
-      }
-
-      function loadedCallback (video, momentData) {
-        console.log("PanoMoment Download Complete");
-      }
-
+      var panorama = new PANOLENS.PanoMomentPanorama( identifier );
+      var viewer = new PANOLENS.Viewer( { output: 'console' } );
+      viewer.add( panorama );
+      // window.scene = viewer.scene;
     </script>
 
   </body>

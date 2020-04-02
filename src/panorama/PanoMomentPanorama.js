@@ -1,5 +1,5 @@
 import { Panorama } from './Panorama';
-// import { TextureLoader } from '../loaders/TextureLoader';
+import {PanoMoments} from '../loaders/PanoMoments.min';
 import * as THREE from 'three';
 
 /**
@@ -7,70 +7,63 @@ import * as THREE from 'three';
  * @constructor
  * @param {string} video - Image url or HTMLVideoElement
  */
-function PanoMomentPanorama ( video, _geometry, _material ) {
+var globalVideo;
+var globalIndex = 0;
+var globalPanoMoment;
+var globalTexture;
+var globalMaterial;
+
+function PanoMomentPanorama ( identifier, _geometry, _material ) {
 
     const radius = 5000;
     const geometry = _geometry || new THREE.SphereBufferGeometry( radius, 60, 40 );
-    const material = _material || new THREE.MeshBasicMaterial( { opacity: 0, transparent: true } );
+    globalMaterial = _material || new THREE.MeshBasicMaterial( { opacity: 0, transparent: true } );
+       
+    Panorama.call( this, geometry, globalMaterial );
 
-    Panorama.call( this, geometry, material );
-
-    this.video = video;
     this.radius = radius;
+    this.identifier = identifier;
+
+    globalTexture = new THREE.Texture(globalVideo);
+    globalTexture.minFilter = globalTexture.magFilter = THREE.LinearFilter;
+    globalTexture.generateMipmaps = false;
+    globalTexture.format = THREE.RGBFormat;
+    
+    this.updateTexture( globalTexture );
+
+    globalPanoMoment = new PanoMoments(this.identifier, renderCallback, readyCallback, loadedCallback);
+
+    function renderCallback  (video, momentData) {
+    }
+
+    function readyCallback  (video, momentData) {
+        globalVideo = video;
+        var myJSON = JSON.stringify(momentData);
+        globalIndex = globalPanoMoment.currentIndex;
+        console.log("PanoMoment Ready.");
+        globalTexture = new THREE.Texture(globalVideo); // UGLY HACK. A lot of this needs to be reworked. I just don't really know how to bind 'this' to callbacks.
+        globalTexture.minFilter = globalTexture.magFilter = THREE.LinearFilter;
+        globalTexture.generateMipmaps = false;
+        globalTexture.format = THREE.RGBFormat;
+        const animate = () => {   
+                globalPanoMoment.render(globalIndex);
+                globalIndex = (globalIndex + 1) % globalPanoMoment.FrameCount;
+                globalMaterial.map = globalTexture;
+                globalTexture.needsUpdate = true;
+                window.requestAnimationFrame( animate );
+            };
+        animate();
+    }
+
+    function loadedCallback (video, momentData) {
+        console.log("PanoMoment Download Complete.");
+    }
 
 }
 
 PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
 
     constructor: PanoMomentPanorama,
-
-    /**
-     * Load PanoMomentPanorama asset
-     * @param  {*} video - Video element
-     * @memberOf PanoMomentPanorama
-     * @instance
-     */
-    load: function ( video ) {
-
-        video = video || this.video;
-
-        if ( !video ) { 
-
-            console.warn( 'Video undefined' );
-
-            return; 
-
-        } else if ( video instanceof HTMLVideoElement ) {
-
-            this.onLoad( new THREE.Texture( video ) );
-
-        }
-
-    },
-
-    /**
-     * This will be called when PanoMomentPanorama is loaded
-     * @param  {THREE.Texture} texture - Texture to be updated
-     * @memberOf PanoMomentPanorama
-     * @instance
-     */
-    onLoad: function ( texture ) {
-
-        texture.minFilter = texture.magFilter = THREE.LinearFilter;
-        texture.generateMipmaps = false;
-        texture.format = THREE.RGBFormat;
-        
-        this.updateTexture( texture );
-
-        window.requestAnimationFrame( Panorama.prototype.onLoad.bind( this ) );
-
-        const loaded = () => {
-                texture.needsUpdate = true;
-                window.requestAnimationFrame( loaded );
-            };
-            loaded();
-        
-    },
 
     /**
      * Reset
