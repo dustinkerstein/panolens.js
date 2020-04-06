@@ -157,6 +157,17 @@ function OrbitControls ( object, domElement ) {
         return lastPosition;
     };
 
+
+    this.rotate = function ( angle ) { // Hack. I'm sure there's a better way to handle this as I know we shouldn't be touching this file...
+        this.staticRotation = true;
+        scope.enableDamping = false;
+        this.rotateLeft(angle);
+        scope.mouseX += THREE.Math.radToDeg(angle) + 90;
+        scope.update();
+        scope.enableDamping = true;
+        this.staticRotation = false;
+    }
+
     this.rotateLeft = function ( angle ) {
 
         if ( angle === undefined ) {

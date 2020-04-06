@@ -7,11 +7,13 @@ import * as THREE from 'three';
  * @constructor
  * @param {string} video - Image url or HTMLVideoElement
  */
+
+// All ugly hacks :(
 var globalVideo;
-var globalIndex = 0;
 var globalPanoMoment;
 var globalTexture;
 var globalMaterial;
+var globalMomentData;
 
 function PanoMomentPanorama ( identifier, _geometry, _material ) {
 
@@ -31,39 +33,55 @@ function PanoMomentPanorama ( identifier, _geometry, _material ) {
     
     this.updateTexture( globalTexture );
 
-    globalPanoMoment = new PanoMoments(this.identifier, renderCallback, readyCallback, loadedCallback);
-
-    function renderCallback  (video, momentData) {
-    }
-
-    function readyCallback  (video, momentData) {
-        globalVideo = video;
-        var myJSON = JSON.stringify(momentData);
-        globalIndex = globalPanoMoment.currentIndex;
-        console.log("PanoMoment Ready.");
-        globalTexture = new THREE.Texture(globalVideo); // UGLY HACK. A lot of this needs to be reworked. I just don't really know how to bind 'this' to callbacks.
-        globalTexture.minFilter = globalTexture.magFilter = THREE.LinearFilter;
-        globalTexture.generateMipmaps = false;
-        globalTexture.format = THREE.RGBFormat;
-        const animate = () => {   
-                globalPanoMoment.render(globalIndex);
-                globalIndex = (globalIndex + 1) % globalPanoMoment.FrameCount;
-                globalMaterial.map = globalTexture;
-                globalTexture.needsUpdate = true;
-                window.requestAnimationFrame( animate );
-            };
-        animate();
-    }
-
-    function loadedCallback (video, momentData) {
-        console.log("PanoMoment Download Complete.");
-    }
+    globalPanoMoment = new PanoMoments(this.identifier, this.renderCallback, this.readyCallback, this.loadedCallback);
 
 }
 
 PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
 
     constructor: PanoMomentPanorama,
+
+    renderCallback: function (video, momentData) {
+    },
+
+    readyCallback: function (video, momentData) { // FYI the start frame should be displayed without the user calling Render (and before the readyCallback is fired) -- I'm not yet sure if this is a bug in the Web SDK or somewhere in this code. TBD. Compare the PanoMoment.html viewer vs. https://my.panomoments.com/u/dustinkerstein/m/grand-central
+        globalVideo = video;
+        globalMomentData = momentData;
+        globalTexture = new THREE.Texture(globalVideo); // UGLY HACK. A lot of this needs to be reworked. I just don't really know how to bind 'this' to callbacks.
+        globalTexture.minFilter = globalTexture.magFilter = THREE.LinearFilter;
+        globalTexture.generateMipmaps = false;
+        globalTexture.format = THREE.RGBFormat;
+        console.log("PanoMoment Ready for Rendering.");
+    },
+
+    loadedCallback: function (video, momentData) {
+        console.log("PanoMoment Download Complete.");
+    },
+
+    setInstanceVariables: function () { // Really ugly hack due to me not knowing how to use 'this' and callbacks properly
+        if (globalVideo) {
+            this.globalMomentData = globalMomentData; 
+        }
+    },
+
+    /**
+     * Set PanoMoment yaw
+     * @memberOf PanoMomentPanorama
+     * @instance
+     * @param {object} event - Event contains float. 0.0 to 360.0
+     */
+
+    setPanoMomentYaw: function (yaw) {
+
+        if (globalVideo) {
+            const yawDerivedFrame =  (yaw / 360) * globalPanoMoment.FrameCount; // Need to offset passed yaw (or change how it's passed) to sync up with the PanoMoment start frame
+            globalPanoMoment.render(yawDerivedFrame);
+            globalMaterial.map = globalTexture; // Appears to be needed even though it shouldn't be. Likely related to the hacky design / workaround for not passing 'this' in the callbacks
+            globalTexture.needsUpdate = true;
+        }
+
+    },
+
 
     /**
      * Reset
@@ -82,6 +100,8 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
      * @instance
      */
     dispose: function () {
+
+        // this.removeEventListener( 'set-yaw', this.setPanoMomentYaw.bind( this ) );
 
         const { material: { map } } = this;
 
