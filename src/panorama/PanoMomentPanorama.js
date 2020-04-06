@@ -74,7 +74,7 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
     setPanoMomentYaw: function (yaw) {
 
         if (globalVideo) {
-            const yawDerivedFrame =  (yaw / 360) * globalPanoMoment.FrameCount; // Need to offset passed yaw (or change how it's passed) to sync up with the PanoMoment start frame
+            const yawDerivedFrame =  (yaw / 360) * globalPanoMoment.FrameCount;
             globalPanoMoment.render(yawDerivedFrame);
             globalMaterial.map = globalTexture; // Appears to be needed even though it shouldn't be. Likely related to the hacky design / workaround for not passing 'this' in the callbacks
             if (globalPanoMoment.textureReady) {
