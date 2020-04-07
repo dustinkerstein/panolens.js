@@ -37,21 +37,35 @@
 
       button {
         position: absolute;
-        top: 5px;
         width: 100px;
         height: 30px;
       }
 
       #btn1 {
         left: 5px;
+        top: 5px;
       }
 
       #btn2 {
         left: 110px;
+        top: 5px;
       }
 
       #btn3 {
         left: 215px;
+        top: 5px;
+      }
+
+      #btn4 {
+        display: none;
+        left: 5px;
+        bottom: 5px;
+      }
+
+      #btn5 {
+        display: none;
+        left: 110px;
+        bottom: 5px;
       }
 
       /*#desc-container {
@@ -116,6 +130,8 @@
     <button id="btn1">Panorama1</button>
     <button id="btn2">Panorama2</button>
     <button id="btn3">PanoMoment</button>
+    <button id="btn4">Stop Tour</button>
+    <button id="btn5">Restart Tour</button>
     
     <div id="desc-container" style="display:none">
       <!-- <iframe src="https://www.youtube.com/embed/D7icsuamx5E"></iframe> -->
@@ -125,10 +141,10 @@
     </div>
 
     <div id="dialog">
-      <div id="typed">Welcome. Click the PanoMoment button above to begin your jorney.</div>
+      <div id="typed">Welcome. Click the PanoMoment button above to begin your journey.</div>
     </div>
 
-    <script src="../node_modules/three/build/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/105/three.min.js"></script>
     <script src="../build/panolens.js"></script>
     <script src="typed.js"></script>
     
@@ -138,7 +154,7 @@
       
       var identifier = {
         moment_id: "58a5d20affe5e3000bdb34c0",
-        variation: 102,
+        variation: 101,
         public_api_key: "63b130be-2f20-40a2-8211-355b607f340a"
       };
 
@@ -146,16 +162,15 @@
 
       // Storytelling
       var typed, typed;
-      var meterInfospot, valveInfospot, seatInfospot, topboxInfospot, endingInfospot;
+      var storyInfospot1, storyInfospot2, storyInfospot3, hiddenInfospot;
       var tweeningDelay = 300, typeStartDelay = 1000, typeSpeed = 50;
       var paragraphs = {
 
-        welcome: [ 'PanoMoments Presents', 'A Journey to a <strong>Train</strong>', 'Here we go' ],
-        meter: [ 'One of the common meter that you can see on a train', 'it is not specially eye-catching but it just can get your attention'],
-        valve: [ 'A Valve', 'solid looking and quite decent color' ],
-        seat: [ 'Alright. Here we have a seat.' ],
-        box: ['Anyway', 'Let\'s keep moving' ],
-        ending: [ 'Please continue your journey with this wonder train...' ]
+        welcome: [ 'PanoMoments Presents', 'A Journey to <strong>Grand Central</strong>', 'Here we go...' ],
+        applestore: [ 'Grand Central is home to an Apple Retail Store', 'while it\'s not historical, it\'s a great place to charge your phone.'],
+        vending: [ 'Purchase train tickets here.', 'and also find when your train will arrive.' ],
+        ceiling: [ 'A beautiful ceiling mural to stare at.' ],
+        ending: [ 'Please continue your journey with Grand Central by clicking and dragging...' ]
 
       };
       
@@ -178,8 +193,7 @@
       }
 
       function onLoad () {
-
-        type( paragraphs.welcome, onWelcomeComplete, 2000 );
+        type( paragraphs.welcome, onWelcomeComplete, 300 );
 
       }
 
@@ -187,6 +201,9 @@
       var audioBuffer, source, audioCtx, buffer;
 
       function onEnter ( event ) {
+
+        btn4.style.display="block";
+        btn5.style.display="block";
 
         audioCtx = listener.context;
 
@@ -206,6 +223,12 @@
 
       }
 
+      function stopAudio () {
+        if (source) {
+          source.stop();
+        }
+      }
+
       function onProgress ( event ) {
 
         var progress = event.progress.loaded / event.progress.total * 100;
@@ -218,38 +241,31 @@
 
       function onWelcomeComplete () {
 
-        delayExecute( meterInfospot.focus.bind( meterInfospot ), tweeningDelay );
-        type( paragraphs.meter, onMeterTourComplete );
+        delayExecute( storyInfospot1.focus.bind( storyInfospot1, 2000 ), tweeningDelay );
+        type( paragraphs.applestore, onStory1Complete );
         
       }
 
-      function onMeterTourComplete () {
+      function onStory1Complete () {
 
-        delayExecute( valveInfospot.focus.bind( valveInfospot ), tweeningDelay );
-        type( paragraphs.valve, onValveTourComplete );
-
-      }
-
-      function onValveTourComplete () {
-
-        delayExecute( seatInfospot.focus.bind( seatInfospot ), tweeningDelay );
-        type( paragraphs.seat, onSeatTourComplete );
+        delayExecute( storyInfospot2.focus.bind( storyInfospot2, 2000 ), tweeningDelay );
+        type( paragraphs.vending, onStory2Complete );
 
       }
 
-      function onSeatTourComplete () {
+      function onStory2Complete () {
 
-        delayExecute( topboxInfospot.focus.bind( topboxInfospot ), tweeningDelay );
-        type( paragraphs.box, onTopboxTourComplete );
+        delayExecute( storyInfospot3.focus.bind( storyInfospot3, 2000 ), tweeningDelay );
+        type( paragraphs.ceiling, onEndComplete );
 
       }
 
-      function onTopboxTourComplete () {
-
-        delayExecute(embedPanoMomentInfospot.focus.bind( embedPanoMomentInfospot ), tweeningDelay );
-        //delayExecute( endingInfospot.focus.bind( endingInfospot ), tweeningDelay );
-        type( paragraphs.ending, function(){ viewer.OrbitControls.enabled = true; } );
-
+      function onEndComplete () {
+        delayExecute(embedPanoMomentInfospot.focus.bind( embedPanoMomentInfospot, 2000 ), tweeningDelay );
+        type( paragraphs.ending, function() { 
+          viewer.OrbitControls.enabled = true; 
+          embedPanoMomentInfospot.onClick({mouseEvent: {clientX: 0, clientY:0}}) // Bit of a hack to force the hover event
+        });
       }
 
       function type ( stringArray, onComplete, startDelay ) {
@@ -270,22 +286,19 @@
       }
 
       // Infospots
-      meterInfospot = new PANOLENS.Infospot();
-      valveInfospot = new PANOLENS.Infospot();
-      seatInfospot = new PANOLENS.Infospot();
-      topboxInfospot = new PANOLENS.Infospot();
-      endingInfospot = new PANOLENS.Infospot( 10e-7 );  // Make it not visible
+      storyInfospot1 = new PANOLENS.Infospot();
+      storyInfospot2 = new PANOLENS.Infospot();
+      storyInfospot3 = new PANOLENS.Infospot();
+      hiddenInfospot = new PANOLENS.Infospot( 10e-7 );  // Make it not visible
 
-      meterInfospot.position.set( 4610.04, 1280.07, 1431.29 );
-      valveInfospot.position.set( 4637.61, -798.12, -1671.24 );
-      seatInfospot.position.set( 1934.61, -2611.69, -3792.91 );
-      topboxInfospot.position.set( -3348.82, 3705.92, 45.54 );
-      endingInfospot.position.set( -3461.4, -3592.37, -241.38 );
+      storyInfospot1.position.set( -187.65, 2110.38, 4518.76 ); // Apple store
+      storyInfospot2.position.set( 2645.91, 1095.57, -4087.84 ); // Vending machines
+      storyInfospot3.position.set( -2124.13, 4113.43, -1878.20 ); // Ceiling
+      hiddenInfospot.position.set( -3461.4, -3592.37, -241.38 );
 
-      meterInfospot.addHoverText( 'Speedometer', 50 );
-      valveInfospot.addHoverText( 'Valve', 50 );
-      seatInfospot.addHoverText( 'Seat', 50 );
-      topboxInfospot.addHoverText( 'Box', 50 );
+      storyInfospot1.addHoverText( 'Apple Store', 50 );
+      storyInfospot2.addHoverText( 'Ticket Vending', 50 );
+      storyInfospot3.addHoverText( 'Ceiling Mural', 50 );
 
       function onProgressUpdate ( event ) {
         var percentage = event.progress.loaded/ event.progress.total * 100;
@@ -302,14 +315,16 @@
 
       panorama1 = new PANOLENS.ImagePanorama( 'https://pchen66.github.io/Panolens/examples/asset/textures/equirectangular/tunnel.jpg' );
       panorama1.addEventListener( 'progress', onProgressUpdate );
+      panorama1.addEventListener('enter', stopAudio);
 
       panorama2 = new PANOLENS.ImagePanorama( 'https://pchen66.github.io/Panolens/examples/asset/textures/equirectangular/sunset.jpg' );
       panorama2.addEventListener( 'progress', onProgressUpdate );
+      panorama2.addEventListener('enter', stopAudio);
 
       panomoment = new PANOLENS.PanoMomentPanorama( identifier );
       panomoment.addEventListener( 'progress', onProgressUpdate ); // PanoMomentPanorama doesn't support this yet...
 
-      embedPanoMomentInfospot = new PANOLENS.Infospot( 350, PANOLENS.DataImage.Info );
+      embedPanoMomentInfospot = new PANOLENS.Infospot();
       embedPanoMomentInfospot.position.set(-227.04, 1937.20, -4596.54);
       embedPanoMomentInfospot.addHoverElement( document.getElementById( 'desc-container' ), 200 );
       panomoment.add( embedPanoMomentInfospot );
@@ -317,15 +332,14 @@
       // panomoment.addEventListener( 'progress', onProgress );
       panomoment.addEventListener( 'load', onLoad );
       panomoment.addEventListener( 'enter', onEnter );
-      panomoment.add( meterInfospot, valveInfospot, seatInfospot, topboxInfospot, endingInfospot );
+      panomoment.add( storyInfospot1, storyInfospot2, storyInfospot3, hiddenInfospot );
 
       viewer = new PANOLENS.Viewer( { container: container, output: 'console'} );
       viewer.OrbitControls.enabled = false;
       viewer.add( panorama1, panorama2, panomoment );
-
+      viewer.setCameraFov(80);
 
       var listener = new THREE.AudioListener();
-      viewer.getCamera().add( listener );
 
       var audioLoader = new THREE.AudioLoader();
       var sound = new THREE.Audio( listener );
@@ -335,20 +349,48 @@
         sound.setLoop( true );
       });
 
-      // Maunal Set Panorama
       var button1 = document.querySelector( '#btn1' );
       var button2 = document.querySelector( '#btn2' );
       var button3 = document.querySelector( '#btn3' );
+      var button4 = document.querySelector( '#btn4' );
+      var button5 = document.querySelector( '#btn5' );
 
       // Enter panorama when load completes
       function onButtonClick( targetPanorama ) {
+        if (typed) {
+          typed.stop(); 
+          typed.reset();
+          embedPanoMomentInfospot.onDismiss();
+          viewer.OrbitControls.enabled = true;
+        }
+        btn4.style.display="none";
+        btn5.style.display="none";
         bar.classList.remove( 'hide' );
         viewer.setPanorama( targetPanorama );
       }
 
+      function onStopTour() {
+        if (typed) {
+          typed.stop(); 
+          typed.reset();
+          embedPanoMomentInfospot.onDismiss();
+          viewer.OrbitControls.enabled = true;
+        }   
+       
+        bar.classList.remove( 'hide' );
+      }
+
+      function onRestartTour() {
+        onStopTour();
+        viewer.OrbitControls.enabled = false; 
+        type( paragraphs.welcome, onWelcomeComplete, 300 );
+      }
+
       button1.addEventListener( 'click', onButtonClick.bind( this, panorama1 ) );
       button2.addEventListener( 'click', onButtonClick.bind( this, panorama2 ) );
-      button3.addEventListener( 'click', onButtonClick.bind( this, panomoment ) ); // PanoMomentPanorama doesn't support this yet...
+      button3.addEventListener( 'click', onButtonClick.bind( this, panomoment ) );
+      button4.addEventListener( 'click', onStopTour.bind( this ) );
+      button5.addEventListener( 'click', onRestartTour.bind( this ) );
 
     </script>
 
