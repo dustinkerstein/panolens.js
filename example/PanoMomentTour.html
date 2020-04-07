@@ -192,40 +192,29 @@
 
       }
 
-      function onLoad () {
+      function onPanoMomentLoad () {
         type( paragraphs.welcome, onWelcomeComplete, 300 );
-
+        if (typed) {
+          viewer.OrbitControls.enabled = false;
+        }
       }
 
 
-      var audioBuffer, source, audioCtx, buffer;
+      var audioBuffer, buffer, sound;
 
-      function onEnter ( event ) {
+      function onPanoMomentEnter ( event ) {
 
         btn4.style.display="block";
         btn5.style.display="block";
-
-        audioCtx = listener.context;
-
-        // create empty buffer
-        buffer = audioCtx.createBuffer(1, 1, 22050);
-        source = audioCtx.createBufferSource();
-        source.buffer = audioBuffer;
-
-        // connect to output (your speakers)
-        source.connect(audioCtx.destination);
-
-        // play the file
-        source.start();
-
+        sound.play();
         // progressElement.style.width = 0;
         // progressElement.classList.remove( 'finish' );
 
       }
 
       function stopAudio () {
-        if (source) {
-          source.stop();
+        if (sound) {
+          sound.pause();
         }
       }
 
@@ -315,11 +304,11 @@
 
       panorama1 = new PANOLENS.ImagePanorama( 'https://pchen66.github.io/Panolens/examples/asset/textures/equirectangular/tunnel.jpg' );
       panorama1.addEventListener( 'progress', onProgressUpdate );
-      panorama1.addEventListener('enter', stopAudio);
+      panorama1.addEventListener('enter', onStopTour);
 
       panorama2 = new PANOLENS.ImagePanorama( 'https://pchen66.github.io/Panolens/examples/asset/textures/equirectangular/sunset.jpg' );
       panorama2.addEventListener( 'progress', onProgressUpdate );
-      panorama2.addEventListener('enter', stopAudio);
+      panorama2.addEventListener('enter', onStopTour);
 
       panomoment = new PANOLENS.PanoMomentPanorama( identifier );
       panomoment.addEventListener( 'progress', onProgressUpdate ); // PanoMomentPanorama doesn't support this yet...
@@ -330,19 +319,17 @@
       panomoment.add( embedPanoMomentInfospot );
 
       // panomoment.addEventListener( 'progress', onProgress );
-      panomoment.addEventListener( 'load', onLoad );
-      panomoment.addEventListener( 'enter', onEnter );
+      panomoment.addEventListener( 'load', onPanoMomentLoad );
+      panomoment.addEventListener( 'enter', onPanoMomentEnter );
       panomoment.add( storyInfospot1, storyInfospot2, storyInfospot3, hiddenInfospot );
 
       viewer = new PANOLENS.Viewer( { container: container, output: 'console'} );
-      viewer.OrbitControls.enabled = false;
       viewer.add( panorama1, panorama2, panomoment );
       viewer.setCameraFov(80);
 
       var listener = new THREE.AudioListener();
-
       var audioLoader = new THREE.AudioLoader();
-      var sound = new THREE.Audio( listener );
+      sound = new THREE.Audio( listener );
       audioLoader.load( './asset/audio/grandcentral.mp3', function( buffer ) {
         audioBuffer = buffer;
         sound.setBuffer( buffer );
@@ -366,6 +353,18 @@
         btn4.style.display="none";
         btn5.style.display="none";
         bar.classList.remove( 'hide' );
+        stopAudio();
+        viewer.setPanorama( targetPanorama );
+      }
+
+      function onPanoMomentButtonClick( targetPanorama ) {
+        if (typed) {
+          typed.stop(); 
+          typed.reset();
+          embedPanoMomentInfospot.onDismiss();
+          viewer.OrbitControls.enabled = true;
+        }
+        bar.classList.remove( 'hide' );
         viewer.setPanorama( targetPanorama );
       }
 
@@ -375,8 +374,7 @@
           typed.reset();
           embedPanoMomentInfospot.onDismiss();
           viewer.OrbitControls.enabled = true;
-        }   
-       
+        }          
         bar.classList.remove( 'hide' );
       }
 
@@ -388,7 +386,7 @@
 
       button1.addEventListener( 'click', onButtonClick.bind( this, panorama1 ) );
       button2.addEventListener( 'click', onButtonClick.bind( this, panorama2 ) );
-      button3.addEventListener( 'click', onButtonClick.bind( this, panomoment ) );
+      button3.addEventListener( 'click', onPanoMomentButtonClick.bind( this, panomoment ) );
       button4.addEventListener( 'click', onStopTour.bind( this ) );
       button5.addEventListener( 'click', onRestartTour.bind( this ) );
 
