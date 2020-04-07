@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no, width=device-width, shrink-to-fit=no">
+    <style>
+      html, body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        margin: 0;
+        background-color: #fff;
+      }
+
+      #progress {
+        position: absolute;
+        width: 100%;
+        height: 3px;
+      }
+
+      #bar {
+        background-color: #fff;
+        height: 100%;
+        transition: width 0.1s ease;
+      }
+
+      #bar.hide {
+        opacity: 0;
+        transition: opacity 1s ease;
+      }
+
+      #container {
+        width: 100%;
+        height: 100%;
+        background-color: #000;
+      }
+
+      button {
+        position: absolute;
+        top: 5px;
+        width: 100px;
+        height: 30px;
+      }
+
+      #btn1 {
+        left: 5px;
+      }
+
+      #btn2 {
+        left: 110px;
+      }
+
+      #btn3 {
+        left: 215px;
+      }
+
+      /*#desc-container {
+        max-width: 500px;
+        max-height: 500px;
+        min-width: 200px;
+        min-height: 250px;
+        background: #fff;
+        color: #000;
+        border-radius: 3px;
+        overflow: auto;
+        -webkit-overflow-scrolling: touch;
+      }*/
+
+      #desc-container > iframe {
+        border: none;
+        /*width:100%;*/
+      }
+
+      .title {
+        display: none;
+        font-size: 1.5em;
+        text-align: center;
+        padding: 5px;
+      }
+
+      .text {
+        display: none;
+        padding: 0 20px 20px 20px;
+      }
+
+
+      #typed {
+        color: #fff;
+        text-shadow: 0px 0px 2px #000;
+        font-size: 24pt;
+      }
+
+      #dialog {
+        position: absolute;
+        top: 50%;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+        box-sizing: border-box;
+        pointer-events: none;
+      }
+
+    </style>
+  </head>
+
+  <body>
+
+    <div id="progress">
+      <div id="bar"></div>
+    </div>
+
+    <div id="container"></div>
+
+    <button id="btn1">Panorama1</button>
+    <button id="btn2">Panorama2</button>
+    <button id="btn3">PanoMoment</button>
+    
+    <div id="desc-container" style="display:none">
+      <!-- <iframe src="https://www.youtube.com/embed/D7icsuamx5E"></iframe> -->
+      <iframe id="embedPanoMoment" pano="PanoMoments" allowfullscreen="1" allow="gyroscope; accelerometer; xr; vr" frameBorder="0" width="400" height="300" scrolling="no" src="https://my.panomoments.com/embed/5d1d73939546370016d41225?disableLogo=1&disabledQuality=0&disabledInfo=1&disabledFullscreen=0&disabledShuffle=1&disabledShare=1"></iframe>
+<!--       <div class="title">PanoMoment within PanoMoment</div>
+      <div class="text">Neat</div> -->
+    </div>
+
+    <div id="dialog">
+      <div id="typed">Welcome. Click the PanoMoment button above to begin your jorney.</div>
+    </div>
+
+    <script src="../node_modules/three/build/three.min.js"></script>
+    <script src="../build/panolens.js"></script>
+    <script src="typed.js"></script>
+    
+    <script>
+
+      var panomoment, panorama1, panorama2, viewer, container, embedPanoMomentInfospot;
+      
+      var identifier = {
+        moment_id: "58a5d20affe5e3000bdb34c0",
+        variation: 102,
+        public_api_key: "63b130be-2f20-40a2-8211-355b607f340a"
+      };
+
+      var bar = document.querySelector( '#bar' );
+
+      // Storytelling
+      var typed, typed;
+      var meterInfospot, valveInfospot, seatInfospot, topboxInfospot, endingInfospot;
+      var tweeningDelay = 300, typeStartDelay = 1000, typeSpeed = 50;
+      var paragraphs = {
+
+        welcome: [ 'PanoMoments Presents', 'A Journey to a <strong>Train</strong>', 'Here we go' ],
+        meter: [ 'One of the common meter that you can see on a train', 'it is not specially eye-catching but it just can get your attention'],
+        valve: [ 'A Valve', 'solid looking and quite decent color' ],
+        seat: [ 'Alright. Here we have a seat.' ],
+        box: ['Anyway', 'Let\'s keep moving' ],
+        ending: [ 'Please continue your journey with this wonder train...' ]
+
+      };
+      
+      // Patch for typed.js of cutting back-to-back words
+      for ( var section in paragraphs ) {
+
+        if ( paragraphs.hasOwnProperty( section ) ) {
+
+          paragraphs[ section ].unshift( '' );
+          paragraphs[ section ].push( '' );
+
+        }
+
+      }
+
+      function delayExecute ( func, delay ) {
+
+        setTimeout( func, delay );
+
+      }
+
+      function onLoad () {
+
+        type( paragraphs.welcome, onWelcomeComplete, 2000 );
+
+      }
+
+
+      var audioBuffer, source, audioCtx, buffer;
+
+      function onEnter ( event ) {
+
+        audioCtx = listener.context;
+
+        // create empty buffer
+        buffer = audioCtx.createBuffer(1, 1, 22050);
+        source = audioCtx.createBufferSource();
+        source.buffer = audioBuffer;
+
+        // connect to output (your speakers)
+        source.connect(audioCtx.destination);
+
+        // play the file
+        source.start();
+
+        // progressElement.style.width = 0;
+        // progressElement.classList.remove( 'finish' );
+
+      }
+
+      function onProgress ( event ) {
+
+        var progress = event.progress.loaded / event.progress.total * 100;
+        progressElement.style.width = progress + '%';
+        if ( progress === 100 ) {
+          progressElement.classList.add( 'finish' );
+        }
+
+      }
+
+      function onWelcomeComplete () {
+
+        delayExecute( meterInfospot.focus.bind( meterInfospot ), tweeningDelay );
+        type( paragraphs.meter, onMeterTourComplete );
+        
+      }
+
+      function onMeterTourComplete () {
+
+        delayExecute( valveInfospot.focus.bind( valveInfospot ), tweeningDelay );
+        type( paragraphs.valve, onValveTourComplete );
+
+      }
+
+      function onValveTourComplete () {
+
+        delayExecute( seatInfospot.focus.bind( seatInfospot ), tweeningDelay );
+        type( paragraphs.seat, onSeatTourComplete );
+
+      }
+
+      function onSeatTourComplete () {
+
+        delayExecute( topboxInfospot.focus.bind( topboxInfospot ), tweeningDelay );
+        type( paragraphs.box, onTopboxTourComplete );
+
+      }
+
+      function onTopboxTourComplete () {
+
+        delayExecute(embedPanoMomentInfospot.focus.bind( embedPanoMomentInfospot ), tweeningDelay );
+        //delayExecute( endingInfospot.focus.bind( endingInfospot ), tweeningDelay );
+        type( paragraphs.ending, function(){ viewer.OrbitControls.enabled = true; } );
+
+      }
+
+      function type ( stringArray, onComplete, startDelay ) {
+
+        onComplete = onComplete || function(){};
+        startDelay = startDelay >= 0 ? startDelay : typeStartDelay;
+
+        typed = new Typed( "#typed", {
+
+          strings: stringArray,
+          typeSpeed: typeSpeed,
+          showCursor: false,
+          startDelay: startDelay,
+          onComplete: onComplete
+          
+        });
+
+      }
+
+      // Infospots
+      meterInfospot = new PANOLENS.Infospot();
+      valveInfospot = new PANOLENS.Infospot();
+      seatInfospot = new PANOLENS.Infospot();
+      topboxInfospot = new PANOLENS.Infospot();
+      endingInfospot = new PANOLENS.Infospot( 10e-7 );  // Make it not visible
+
+      meterInfospot.position.set( 4610.04, 1280.07, 1431.29 );
+      valveInfospot.position.set( 4637.61, -798.12, -1671.24 );
+      seatInfospot.position.set( 1934.61, -2611.69, -3792.91 );
+      topboxInfospot.position.set( -3348.82, 3705.92, 45.54 );
+      endingInfospot.position.set( -3461.4, -3592.37, -241.38 );
+
+      meterInfospot.addHoverText( 'Speedometer', 50 );
+      valveInfospot.addHoverText( 'Valve', 50 );
+      seatInfospot.addHoverText( 'Seat', 50 );
+      topboxInfospot.addHoverText( 'Box', 50 );
+
+      function onProgressUpdate ( event ) {
+        var percentage = event.progress.loaded/ event.progress.total * 100;
+        bar.style.width = percentage + "%";
+        if (percentage >= 100){
+          bar.classList.add( 'hide' );
+          setTimeout(function(){
+            bar.style.width = 0;
+          }, 1000);
+        }
+      }
+
+      container = document.querySelector( '#container' );
+
+      panorama1 = new PANOLENS.ImagePanorama( 'https://pchen66.github.io/Panolens/examples/asset/textures/equirectangular/tunnel.jpg' );
+      panorama1.addEventListener( 'progress', onProgressUpdate );
+
+      panorama2 = new PANOLENS.ImagePanorama( 'https://pchen66.github.io/Panolens/examples/asset/textures/equirectangular/sunset.jpg' );
+      panorama2.addEventListener( 'progress', onProgressUpdate );
+
+      panomoment = new PANOLENS.PanoMomentPanorama( identifier );
+      panomoment.addEventListener( 'progress', onProgressUpdate ); // PanoMomentPanorama doesn't support this yet...
+
+      embedPanoMomentInfospot = new PANOLENS.Infospot( 350, PANOLENS.DataImage.Info );
+      embedPanoMomentInfospot.position.set(-227.04, 1937.20, -4596.54);
+      embedPanoMomentInfospot.addHoverElement( document.getElementById( 'desc-container' ), 200 );
+      panomoment.add( embedPanoMomentInfospot );
+
+      // panomoment.addEventListener( 'progress', onProgress );
+      panomoment.addEventListener( 'load', onLoad );
+      panomoment.addEventListener( 'enter', onEnter );
+      panomoment.add( meterInfospot, valveInfospot, seatInfospot, topboxInfospot, endingInfospot );
+
+      viewer = new PANOLENS.Viewer( { container: container, output: 'console'} );
+      viewer.OrbitControls.enabled = false;
+      viewer.add( panorama1, panorama2, panomoment );
+
+
+      var listener = new THREE.AudioListener();
+      viewer.getCamera().add( listener );
+
+      var audioLoader = new THREE.AudioLoader();
+      var sound = new THREE.Audio( listener );
+      audioLoader.load( './asset/audio/grandcentral.mp3', function( buffer ) {
+        audioBuffer = buffer;
+        sound.setBuffer( buffer );
+        sound.setLoop( true );
+      });
+
+      // Maunal Set Panorama
+      var button1 = document.querySelector( '#btn1' );
+      var button2 = document.querySelector( '#btn2' );
+      var button3 = document.querySelector( '#btn3' );
+
+      // Enter panorama when load completes
+      function onButtonClick( targetPanorama ) {
+        bar.classList.remove( 'hide' );
+        viewer.setPanorama( targetPanorama );
+      }
+
+      button1.addEventListener( 'click', onButtonClick.bind( this, panorama1 ) );
+      button2.addEventListener( 'click', onButtonClick.bind( this, panorama2 ) );
+      button3.addEventListener( 'click', onButtonClick.bind( this, panomoment ) ); // PanoMomentPanorama doesn't support this yet...
+
+    </script>
+
+  </body>
+</html>
