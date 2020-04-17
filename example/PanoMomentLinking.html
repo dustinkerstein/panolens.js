@@ -1,3 +1,4 @@
+@@ -1,58 +0,0 @@
 <!DOCTYPE html>
 <html>
   <head>
@@ -29,23 +30,39 @@
     <script>
 
 
-      var identifier = {
+      var identifier1 = {
         moment_id: "58a5d20affe5e3000bdb34c0",
-        variation: 102,
+        variation: 101,
         public_api_key: "63b130be-2f20-40a2-8211-355b607f340a"
       };
 
-      var panorama = new PANOLENS.PanoMomentPanorama( identifier );
-      var panorama1, viewer;
+     var identifier2 = {
+        moment_id: "5d112c0a18417e00162f713e",
+        variation: 101,
+        public_api_key: "63b130be-2f20-40a2-8211-355b607f340a"
+      };
 
-      panorama1 = new PANOLENS.GoogleStreetviewPanorama( 'y0rbkep4RBcAAAQqZe0GiQ' );
+      var panomoment1 = new PANOLENS.PanoMomentPanorama( identifier1 );
+      var panomoment2 = new PANOLENS.PanoMomentPanorama( identifier2 );
+      var panorama1 = new PANOLENS.ImagePanorama( 'asset/textures/equirectangular/field.jpg' );
+      var panorama2 = new PANOLENS.ImagePanorama( 'asset/textures/equirectangular/building.jpg' );
 
-      viewer = new PANOLENS.Viewer();
-      viewer.add( panorama );
-      viewer.add( panorama1 );
+      var viewer = new PANOLENS.Viewer({output: 'console', autoHideInfospot: false});
+      
+      viewer.add( panomoment1,panorama1 );
+      // viewer.add( panomoment2 );
+      // viewer.add( panorama1 );
+      // viewer.add( panorama2 );
 
-      panorama.link( panorama1, new THREE.Vector3( -3145.23, -3704.40, 1149.48 ) );
-      panorama1.link( panorama, new THREE.Vector3( -3429.01, 1205.85, -3421.88 ) );
+      // panomoment1.link( panomoment2, new THREE.Vector3( -2935.95, -12.75, -568.03 ) );
+      // panomoment2.link( panomoment1, new THREE.Vector3( -2935.95, -12.75, -568.03 ) );
+
+      panomoment1.link( panorama1, new THREE.Vector3( -2935.95, -12.75, -568.03 ) );
+      panorama1.link( panomoment1, new THREE.Vector3( -2935.95, -12.75, -568.03 ) );
+
+      // panorama1.link( panorama2, new THREE.Vector3( -1063.33, 138.97, -4878.72 ) );
+      // panorama2.link( panorama1, new THREE.Vector3( -1063.33, 138.97, -4878.72 ) );
+
 
     </script>
 

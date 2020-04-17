@@ -9,6 +9,7 @@ import { Infospot } from '../infospot/Infospot';
 import { DataImage } from '../DataImage';
 import { Panorama } from '../panorama/Panorama';
 import { PanoMomentPanorama } from '../panorama/PanoMomentPanorama';
+import { PanoMomentRegular } from '../panorama/PanoMomentRegular';
 import { VideoPanorama } from '../panorama/VideoPanorama';
 import { CameraPanorama } from '../panorama/CameraPanorama';
 import * as THREE from 'three';
@@ -234,9 +235,6 @@ function Viewer ( options ) {
     // Animate
     this.animate.call( this );
 
-    // PanoMoment stuff
-    this.panoMomentViewerSynced = false;
-
 };
 
 Viewer.prototype = Object.assign( Object.create( THREE.EventDispatcher.prototype ), {
@@ -284,6 +282,14 @@ Viewer.prototype = Object.assign( Object.create( THREE.EventDispatcher.prototype
         if ( object instanceof CameraPanorama ) {
 
             object.dispatchEvent( { type: 'panolens-scene', scene: this.scene } );
+
+        }
+
+        if ( object instanceof PanoMomentPanorama || object instanceof PanoMomentRegular ) {
+
+            object.dispatchEvent( { type: 'panolens-camera', camera: this.camera } );
+            object.dispatchEvent( { type: 'panolens-orbitcontrols', OrbitControls: this.OrbitControls } );
+            object.dispatchEvent( { type: 'panolens-viewer', viewer: this } ); // Hack for testing non-360 PanoMoments
 
         }
 
@@ -355,6 +361,10 @@ Viewer.prototype = Object.assign( Object.create( THREE.EventDispatcher.prototype
      * @instance
      */
     setPanorama: function ( pano ) {
+
+        this.OrbitControls.panorama = pano;
+        this.OrbitControls.AzimuthAngleLimits();
+        this.OrbitControls.enforceFOVLimits();
 
         const leavingPanorama = this.panorama;
 
@@ -1246,6 +1256,7 @@ Viewer.prototype = Object.assign( Object.create( THREE.EventDispatcher.prototype
         }
 
         this.camera.aspect = width / height;
+        this.OrbitControls.enforceFOVLimits();
         this.camera.updateProjectionMatrix();
 
         this.renderer.setSize( width, height );
@@ -1808,23 +1819,6 @@ Viewer.prototype = Object.assign( Object.create( THREE.EventDispatcher.prototype
      * @instance
      */
     animate: function () {
-        if (this.panorama instanceof PanoMomentPanorama)
-        {
-            this.panorama.setInstanceVariables(); // Ugly hack
-            if (this.panorama.globalMomentData) {  // Only run this once we have the Ready callback. Bit of a hack given the poor design of the 'this' and callback workarounds.
-                if (!this.panoMomentViewerSynced) { // Set the starting viewing angle based on PanoMoment metadata.
-                    this.OrbitControls.rotate( THREE.Math.degToRad(this.panorama.globalMomentData.start_frame + 180) ); // Needed a way to specify a starting viewing angle. Out of the box, OrbitControls doesn't provide this... I'm sure there's some other way to do this though.
-                    this.panoMomentViewerSynced = true;
-                }  
-                var yaw = THREE.Math.radToDeg(this.camera.rotation.y) + 180; // Find the current viewer Yaw
-                if (this.panorama.globalMomentData.clockwise) { 
-                    yaw = (-yaw + 90) % 360; 
-                } else {
-                    yaw = (yaw + 90) % 360; // This needs to be tested on counter clockwise PanoMoments. Haven't done that yet.
-                }
-                this.panorama.setPanoMomentYaw(yaw); // Pass the Yaw to PanoMomentPanorama via event
-            }
-        }
 
         this.requestAnimationId = window.requestAnimationFrame( this.animate.bind( this ) );
 

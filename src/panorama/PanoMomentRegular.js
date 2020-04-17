@@ -4,20 +4,21 @@ import { BallSpinerLoader } from '../lib/spinners/BallSpinner';
 import * as THREE from 'three';
 
 /**
- * @classdesc PanoMomentPanorama based panorama
+ * @classdesc PanoMomentRegular
  * @constructor
  * @param {object, bool} PanoMoments identifier and force reload option
  */
 var myRadius = 3000; // Major hack for the render depth glitch mentioned below
 
-function PanoMomentPanorama ( _identifier, _forceReload) {
+function PanoMomentRegular ( _identifier, _forceReload) {
 
     myRadius = myRadius - 5;
     var radius = myRadius; // There are some weird visual artifacts in the sphere mesh when using the 6000 radius (or values close to that) when there are other PanoMoments / 360 Photos loaded in the viewer.
     // This doesn't entirely fix it either as it seems to still show up during fadeIn/fadeOut. This glitch only shows up when manually setting the mesh rotation in animate() in the viewer.
     // Setting renderer.sortObjects = false fixes this with radius at 6000, but is still broken during the fading transition. For other reasons, there are conflicts with the fading transition (see my notes in animate()) so we'll need to figure out a plan.
     // The myRadius = myRadius - 5 is working for now... but damn that's ugly.
-    const geometry = new THREE.SphereBufferGeometry( radius, 60, 40 );
+    const geometry = new THREE.PlaneGeometry(1, 1);
+
     this.Material = new THREE.MeshBasicMaterial( { opacity: 0, transparent: true } );
        
     Panorama.call( this, geometry, this.Material );
@@ -30,12 +31,13 @@ function PanoMomentPanorama ( _identifier, _forceReload) {
 
     this.addEventListener( 'panolens-camera', this.onPanolensCamera.bind( this ) );
     this.addEventListener( 'panolens-orbitcontrols', this.onPanolensOrbitControls.bind( this ) );
+    this.addEventListener( 'panolens-viewer', this.onPanolensViewer.bind( this ) );
 
 }
 
-PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
+PanoMomentRegular.prototype = Object.assign( Object.create( Panorama.prototype ), {
 
-    constructor: PanoMomentPanorama,
+    constructor: PanoMomentRegular,
 
     /**
      * When camera reference dispatched
@@ -51,6 +53,14 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
      */
     onPanolensOrbitControls: function( { OrbitControls } ) {
         this.OrbitControls = OrbitControls;
+    },
+
+    /**
+     * When viewer reference dispatched
+     * @param {THREE.Camera} camera 
+     */
+    onPanolensViewer: function( { viewer } ) { // HACK
+        this.viewer = viewer;
     },
 
     load: function () {
@@ -101,7 +111,7 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
             } else {
                 yaw = (yaw + 90) % 360; // This needs to be tested on counter clockwise PanoMoments. Haven't done that yet.
             }
-            this.setPanoMomentYaw(yaw); // Pass the Yaw to PanoMomentPanorama via event
+            this.setPanoMomentYaw(yaw); // Pass the Yaw to PanoMomentRegular via event
         }
     },
 
@@ -112,8 +122,32 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
             this.OrbitControls.AzimuthAngleLimits();
             this.camera.position.copy( this.position );
             this.camera.position.z += 1;
+
+            this.viewer.scene.add(this.camera);
+            this.camera.add(this);
+            this.position.set(0,0,-2);
+            this.material.side = THREE.FrontSide;
+
+            var windowAspectRatio = window.innerWidth / window.innerHeight;
+            var videoAspectRatio = this.momentData.aspect_ratio ? this.momentData.aspect_ratio : 1.7777777; // Shouldn't really fall back to 16/9 but it's okay for now
+            var distanceToPlane = Math.abs(this.position.z);
+
+            var limit;
+            if (videoAspectRatio < windowAspectRatio) {
+                limit = (Math.tan (THREE.Math.degToRad(this.camera.fov * 0.5)) * distanceToPlane * 2.0) * videoAspectRatio; 
+            } else {
+                limit = (Math.tan (THREE.Math.degToRad(this.camera.fov * 0.5)) * distanceToPlane * 2.0) * windowAspectRatio 
+            }
+
+            var calcScale = new THREE.Vector3 (limit, limit / videoAspectRatio, 1);
+            this.scale.set(calcScale.x,calcScale.y,1);
+
+            viewer.camera.add(viewer.scene.children[0]);
+            this.camera.children[3].material.opacity = 1;
+            this.camera.children[3].position.set(0,0,-50);
+            this.camera.children[3].scale.set(1,1,0.003333333333333334);
+
             this.OrbitControls.rotateLeft( THREE.Math.degToRad(this.momentData.start_frame + 180) ); // Needed a way to specify a starting viewing angle. Out of the box, OrbitControls doesn't provide this... I'm sure there's some other way to do this though.
-            this.rotation.y = THREE.Math.degToRad(this.momentData.max_horizontal_fov - 90); // Fix for start alignment but this seems to cause a weird visual glitch on PanoMoment.html (but strangely not PanoMoment.html)
             this.Texture = new THREE.Texture(video);
             this.Texture.minFilter = this.Texture.magFilter = THREE.LinearFilter;
             this.Texture.generateMipmaps = false;
@@ -136,7 +170,7 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
 
     /**
      * Set PanoMoment yaw
-     * @memberOf PanoMomentPanorama
+     * @memberOf PanoMomentRegular
      * @instance
      * @param {object} event - Event contains float. 0.0 to 360.0
      */
@@ -156,7 +190,7 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
 
      /**
      * onEnter
-     * @memberOf PanoMomentPanorama
+     * @memberOf PanoMomentRegular
      * @instance
      */
     onEnter: function () {
@@ -179,7 +213,7 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
 
     /**
      * onLeave
-     * @memberOf PanoMomentPanorama
+     * @memberOf PanoMomentRegular
      * @instance
      */
     onLeave: function () {
@@ -208,7 +242,7 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
 
     /**
      * Reset
-     * @memberOf PanoMomentPanorama
+     * @memberOf PanoMomentRegular
      * @instance
      */
     reset: function () {
@@ -219,7 +253,7 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
 
     /**
      * Dispose
-     * @memberOf PanoMomentPanorama
+     * @memberOf PanoMomentRegular
      * @instance
      */
     dispose: function () {
@@ -234,4 +268,4 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
 
 } );
 
-export { PanoMomentPanorama };
+export { PanoMomentRegular };

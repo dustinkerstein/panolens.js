@@ -15,6 +15,7 @@ export { Widget } from './widget/Widget';
 export { Panorama } from './panorama/Panorama';
 export { ImagePanorama } from './panorama/ImagePanorama';
 export { PanoMomentPanorama } from './panorama/PanoMomentPanorama';
+export { PanoMomentRegular } from './panorama/PanoMomentRegular';
 export { EmptyPanorama } from './panorama/EmptyPanorama';
 export { CubePanorama } from './panorama/CubePanorama';
 export { BasicPanorama } from './panorama/BasicPanorama';
