@@ -174,32 +174,6 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
 
         Panorama.prototype.onLeave.call( this );
 
-    },
-
-    /**
-     * Reset
-     * @memberOf PanoMomentPanorama
-     * @instance
-     */
-    reset: function () {
-
-        Panorama.prototype.reset.call( this );
-
-    },
-
-    /**
-     * Dispose
-     * @memberOf PanoMomentPanorama
-     * @instance
-     */
-    dispose: function () {
-
-        const { material: { map } } = this;
-
-        if ( map ) { map.dispose(); }
-
-        Panorama.prototype.dispose.call( this );
-
     }
 
 } );
