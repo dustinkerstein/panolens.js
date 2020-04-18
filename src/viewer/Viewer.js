@@ -274,6 +274,7 @@ Viewer.prototype = Object.assign( Object.create( THREE.EventDispatcher.prototype
             object.dispatchEvent( { type: 'panolens-camera', camera: this.camera } );
 
         }
+        
         // Hookup default panorama event listeners
         if ( object instanceof Panorama ) {
 

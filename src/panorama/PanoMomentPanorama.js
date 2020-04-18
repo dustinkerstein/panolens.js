@@ -59,6 +59,9 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
         this.setPanoMomentYaw( yaw );
     },
 
+    /** 
+    * On Pano Moment Render Callback   
+    */
     renderCallback: function (video, momentData) {
         
         if (!this.momentData) {
@@ -86,6 +89,9 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
         
     },
 
+    /**
+    * On Pano Moment Ready Callback
+    */
     readyCallback: function (video, momentData) {
         this.dispatchEvent( { type: 'panolens-viewer-handler', method: 'enableControl' }); // This won't work with cached PanoMoments as the callback doesn't happen. Using isReady for now.
         this.dispatchEvent( { type: 'panoMomentReady' } );
@@ -93,6 +99,9 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
         console.log('PanoMoment Ready.');
     },
 
+    /**
+    * On Pano Moment Loaded Callback
+    */
     loadedCallback: function (video, momentData) {
         console.log("PanoMoment Download Complete.");
     },
@@ -100,9 +109,8 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
     /**
      * Set PanoMoment yaw
      * @memberOf PanoMomentPanorama
-     * @instance
-     * @param {object} event - Event contains float. 0.0 to 360.0
-     */
+     * @param {number} yaw - yaw value from 0 to 360 in degree  
+    */
 
     setPanoMomentYaw: function (yaw) {
 
@@ -114,13 +122,11 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
 
         render((yaw / 360) * FrameCount);
 
-        if (textureReady) {
-            this.getTexture().needsUpdate = true;
-        }
+        if (textureReady) this.getTexture().needsUpdate = true;
 
     },
 
-     /**
+    /**
      * onEnter
      * @memberOf PanoMomentPanorama
      * @instance
