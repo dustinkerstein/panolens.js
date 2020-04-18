@@ -13,7 +13,7 @@ function PanoMomentPanorama ( identifier, forceReload ) {
     Panorama.call( this );
 
     this.identifier = identifier;
-    this.PanoMomentss = null;
+    this.PanoMoments = null;
     this.momentData = null;
     this.camera = null;
 
