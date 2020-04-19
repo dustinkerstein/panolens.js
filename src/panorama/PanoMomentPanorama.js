@@ -22,6 +22,7 @@ function PanoMomentPanorama ( identifier, forceReload ) {
     this.isReady = false;
 
     this.addEventListener( 'panolens-camera', this.onPanolensCamera.bind( this ) );
+    this.addEventListener( 'panolens-orbitControls', this.onPanolensOrbitControls.bind( this ) );
 
 }
 
@@ -35,6 +36,14 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
      */
     onPanolensCamera: function( { camera } ) {
         this.camera = camera;
+    },
+
+    /**
+     * When orbit controls reference dispatched
+     * @param {OrbitControls} orbitControls 
+     */
+    onPanolensOrbitControls: function( { orbitControls } ) {
+        this.orbitControls = orbitControls;
     },
 
     load: function () {
@@ -67,6 +76,10 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
         if (!this.momentData) {
 
             this.momentData = momentData;
+
+            this.orbitControls.panorama = this;
+            this.orbitControls.AzimuthAngleLimits();
+            this.orbitControls.enforceFOVLimits();
 
             const texture = new THREE.VideoTexture( video );
             texture.minFilter = texture.magFilter = THREE.LinearFilter;
@@ -139,6 +152,10 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
             method: 'addUpdateCallback', 
             data: this.updateCallback.bind(this)
         });
+
+        this.orbitControls.panorama = this;
+        this.orbitControls.AzimuthAngleLimits();
+        this.orbitControls.enforceFOVLimits();
 
         if (this.reload && this.forceReload) {
             this.reload = false;
