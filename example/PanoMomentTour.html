@@ -618,7 +618,7 @@
       var tweeningDelay = 300, typeStartDelay = 1000, typeSpeed = 40;
       var paragraphs = {
 
-        landing: [ 'Welcome!^500', "This is a demo of what you can build with <a id='sdk' href='' target='_blank'><strong>PanoMoments</strong></a> + <a id='panolens' href='' target='_blank'><strong>Panolens.js</strong></a>^3000", 'Click and drag to explore.', 'Select the ☰ button to view other examples.', 'Click the play button to take a guided tour.^1000' ],
+        landing: [ 'Welcome!^500', "This is a demo of what you can build with <a id='sdk' href='' target='_blank'><strong>PanoMoments</strong></a> + <a id='panolens' href='' target='_blank'><strong>Panolens.js</strong></a>^2000", 'Click and drag to explore.', 'Select the ☰ button to view other examples.', 'Click the play button to take a guided tour.^1000' ],
         welcome: [ 'Journey around <strong>Grand Central</strong> with background audio and a guided tour.' ],
         applestore: [ 'Grand Central is home to an Apple Retail Store', 'It\'s a great place to charge your phone.'],
         vending: [ 'Purchase train tickets here, ^500 and also find when your train will arrive.' ],
@@ -1011,6 +1011,7 @@
       }
 
       function bam_type ( stringArray, onComplete ) {
+        
         if (typed) {
           typed.stop(); 
           typed.reset();
@@ -1030,6 +1031,11 @@
       }
 
       function landing_type ( stringArray, onComplete, startDelay ) {
+
+        if (typed) {
+          typed.stop();
+          typed.reset();
+        }
 
         dialog.style.pointerEvents = "all";
 
