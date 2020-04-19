@@ -1,6 +1,5 @@
 import { Panorama } from './Panorama';
 import { PanoMoments } from '../loaders/PanoMoments.min';
-import { BallSpinerLoader } from '../lib/spinners/BallSpinner';
 import * as THREE from 'three';
 
 /**
@@ -57,43 +56,15 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
         this.Texture = new THREE.Texture();   
         this.updateTexture( this.Texture );
         this.PanoMoment = new PanoMoments(this.identifier, this.renderCallback.bind( this ), this.readyCallback.bind( this ), this.loadedCallback.bind( this ));
-        this.spinner = new BallSpinerLoader({ groupRadius:20 }); 
-        this.spinner.mesh.position.set(0,0,-600);
-        this.addSpinner(this.spinner.mesh);
         this.dispatchEvent( { type: 'panoMomentLoad' } );
         this.onLoad();
         console.log("PanoMoment Initialized.");
-    },
-
-     /**
-     * Add Spinner
-     * @param {object} spinner.mesh 
-     */
-    addSpinner: function ( spinnerMesh ) {
-        
-        this.camera.add(spinnerMesh);
-        spinnerMesh.name='spinner';
-
-    },
-
-     /**
-     * Remove Spinner
-     * @param {object} spinner.mesh 
-     */
-    removeSpinner: function ( spinnerMesh ) {
-
-        this.camera.remove(this.camera.getObjectById(spinnerMesh.id));
-
     },
 
     /**
      * On Panolens update callback
      */
     updateCallback: function() {
-        if (this.camera.getObjectByName('spinner') && this.spinner) { // Not sure if this is expensive to do...
-            this.spinner.animate();
-        }
-
         if (this.momentData) { 
             var yaw = THREE.Math.radToDeg(this.camera.rotation.y) + 180; // Find the current viewer Yaw
             if (this.momentData.clockwise) { 
@@ -125,7 +96,6 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
 
     readyCallback: function (video, momentData) {
         this.isReady = true;
-        this.removeSpinner(this.spinner.mesh);
         this.dispatchEvent( { type: 'panoMomentReady' } );
         console.log("PanoMoment Ready for Rendering.");
     },
@@ -191,12 +161,9 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
             data: this.updateCallback.bind(this)
         });
 
-        this.removeSpinner(this.spinner.mesh);
-
         if (this.forceReload) {
             this.isReady = false;
             this.reload = true;
-            this.spinner = null;
             this.PanoMoment.dispose(); // This currently doesn't stop an ongoing download which is a bit of an issue... Maybe for later though.
             this.PanoMoment = null; 
             this.momentData = null;
