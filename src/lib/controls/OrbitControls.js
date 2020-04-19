@@ -66,7 +66,7 @@ function OrbitControls ( object, domElement ) {
     this.momentumDampingFactor = 0.90;
   	this.momentumScalingFactor = -0.005;
   	this.momentumKeydownFactor = 20;
-    this.maxMomentum = 15;
+    this.maxMomentum = 12;
 
   	// Fov
   	this.minFov = 30;
