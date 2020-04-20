@@ -157,6 +157,10 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
         this.orbitControls.AzimuthAngleLimits();
         this.orbitControls.enforceFOVLimits();
 
+        if (this.isReady) {
+            this.dispatchEvent( { type: 'panolens-viewer-handler', method: 'enableControl' });
+        }
+
         if (this.reload && this.forceReload) {
             this.reload = false;
             this.load();

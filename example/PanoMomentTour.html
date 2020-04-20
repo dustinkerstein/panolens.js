@@ -659,14 +659,12 @@
 
       function onPanoMomentLoad () {
         if (viewer.panorama == this) {
-          viewer.OrbitControls.enabled = false;
           viewer.camera.add(spinner.mesh);
         }
       }
 
       function onPanoMomentReady () {
 
-        viewer.OrbitControls.enabled = true;
         viewer.camera.remove(viewer.camera.getObjectById(spinner.mesh.id));
 
         switch(this) {
@@ -811,7 +809,6 @@
         type( paragraphs.ending, function() { 
           viewer.panorama.toggleInfospotVisibility(true);
           stopTypedAndCancelDelayExecute();
-          viewer.OrbitControls.enabled = true; 
           tourRunning = false;
           setPlayTourButton ();
         });
@@ -865,14 +862,10 @@
 
       function onEnter () {
 
-        // viewer.camera.position.copy( this.position ); // This breaks fade transition.
-        // viewer.camera.position.z += 1; 
-
         $('#menu').find('a').removeClass("currentlySelected")
 
         credit.style.display = 'none';
         alignment.style.display = 'none';
-        viewer.OrbitControls.enabled = true;
 
         buyButton1.material.visible = true; // Workaround for buy button if it was left visible
         buyButton1.onDismiss();
