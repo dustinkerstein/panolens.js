@@ -1117,7 +1117,7 @@
       hiddenInfospot3.position.set( -5000.00, -2954.57, 1120.11 ); // Water
 
       // Buy buttons
-      buyButton1 = new PANOLENS.Infospot(400, 'asset/textures/buy.png', true);
+      buyButton1 = new PANOLENS.Infospot(400, 'https://files.panomoments.com/asset/textures/buy.png', true);
       buyButton1.position.set( 5000.00, -879.20, 3697.63 );
       buyButton1.addHoverElement( document.getElementById( 'stripeDiv' ), 0 ); // This breaks click event and requires below hack
       buyButton1.addEventListener( 'hoverenter', onBuyEnter ); 
@@ -1245,7 +1245,7 @@
       var listener = new THREE.AudioListener();
       var audioLoader = new THREE.AudioLoader();
       sound = new THREE.Audio( listener );
-      audioLoader.load( './asset/audio/grandcentral.mp3', function( buffer ) {
+      audioLoader.load( 'https://files.panomoments.com/asset/audio/grandcentral.mp3', function( buffer ) {
         audioBuffer = buffer;
         sound.setBuffer( buffer );
         sound.setLoop( true );
