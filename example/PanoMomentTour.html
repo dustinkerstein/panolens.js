@@ -541,8 +541,8 @@
       $('#alignmentRight').on('mousedown touchstart', function(e) {
         timeOutA = setInterval(function(){
           viewer.panorama.material.uniforms.offset.value.x = (viewer.panorama.material.uniforms.offset.value.x + .001) % 1;
-          degrees.innerHTML = (Math.round(viewer.panorama.material.uniforms.offset.value.x * 360 * 10) / 10).toFixed(1) + '°';
-        }, 10);
+          degrees.innerHTML = (Math.round(viewer.panorama.material.uniforms.offset.value.x * 360 * 10) / 10).toFixed(0) + '°';
+        }, 20);
       }).bind('mouseup mouseleave touchend', function() {
         clearInterval(timeOutA);
       });
@@ -552,8 +552,8 @@
         timeOutB = setInterval(function(){
           viewer.panorama.material.uniforms.offset.value.x = (viewer.panorama.material.uniforms.offset.value.x - .001) % 1;
           if (viewer.panorama.material.uniforms.offset.value.x < 0) viewer.panorama.material.uniforms.offset.value.x = 1;
-          degrees.innerHTML = (Math.round(viewer.panorama.material.uniforms.offset.value.x * 360 * 10) / 10).toFixed(1) + '°';
-        }, 10);
+          degrees.innerHTML = (Math.round(viewer.panorama.material.uniforms.offset.value.x * 360 * 10) / 10).toFixed(0) + '°';
+        }, 20);
       }).bind('mouseup mouseleave touchend', function() {
         clearInterval(timeOutB);
       });
@@ -685,7 +685,7 @@
             conversionLanding();
             break;
           case panomoment6:
-            degrees.innerHTML = (Math.round(viewer.panorama.material.uniforms.offset.value.x * 360 * 10) / 10).toFixed(1) + '°';
+            degrees.innerHTML = (Math.round(viewer.panorama.material.uniforms.offset.value.x * 360 * 10) / 10).toFixed(0) + '°';
             alignment.style.display = 'block';
             alignmentLanding();
             break;
