@@ -1068,13 +1068,13 @@ Viewer.prototype = Object.assign( Object.create( THREE.EventDispatcher.prototype
 
     rotateControlLeft: function ( left ) {
 
-        this.control.rotateLeft( left );
+        this.control.rotateLeftStatic( left );
 
     },
 
     rotateControlUp: function ( up ) {
 
-        this.control.rotateUp( up );
+        this.control.rotateUpStatic( up );
 
     },
 
