@@ -378,9 +378,6 @@ function OrbitControls ( object, domElement ) {
 
         this.object.lookAt( this.target );
 
-        // thetaDelta = 0;
-        // phiDelta = 0;
-
         if ( this.enableDamping === true ) {
 
             thetaDelta *= ( 1 - this.dampingFactor );
