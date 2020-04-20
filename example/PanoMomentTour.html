@@ -676,6 +676,10 @@
 
       function onPanoMomentReady () {
 
+        if (viewer.panorama != this) {
+          return;
+        }
+
         viewer.camera.remove(viewer.camera.getObjectById(spinner.mesh.id));
 
         switch(this) {
