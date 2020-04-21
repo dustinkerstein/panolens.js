@@ -1103,13 +1103,21 @@ Viewer.prototype = Object.assign( Object.create( THREE.EventDispatcher.prototype
 
     rotateControlLeft: function ( left ) {
 
-        this.control.rotateLeft( left );
+        if ( this.control === this.OrbitControls ) {
+            this.control.rotateLeftStatic( left );
+        } else {
+            this.control.rotateLeft( left );
+        }
 
     },
 
     rotateControlUp: function ( up ) {
 
-        this.control.rotateUp( up );
+        if ( this.control === this.OrbitControls ) {
+            this.control.rotateUpStatic( up );
+        } else {
+            this.control.rotateUp( up );
+        }
 
     },
 

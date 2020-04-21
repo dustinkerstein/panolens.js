@@ -25,8 +25,7 @@ function PanoMomentPanorama ( identifier, options = {} ) {
     this.momentData = null;
     this.status = PANOMOMENT.NONE;
     this.options = Object.assign( {
-        dampingFactor: 0.95,
-        maxMomentum: 10
+        momentumLimit: .04
     }, options );
 
     // Panolens
@@ -74,8 +73,9 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
      */
     onPanolensControls: function( { controls } ) {
 
-        const [ { minPolarAngle, maxPolarAngle, updateMomentum } ] = controls;
-        Object.assign( this.defaults, { minPolarAngle, maxPolarAngle, updateMomentum } );
+        const [ { minPolarAngle, maxPolarAngle, momentumLimit } ] = controls;
+
+        Object.assign( this.defaults, { minPolarAngle, maxPolarAngle, momentumLimit} );
         
         this.controls = controls;
 
@@ -122,34 +122,6 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
         const event = { type: 'panolens-viewer-handler', method: 'disableControl' };
 
         requestAnimationFrame( this.dispatchEvent.bind( this, event ) );
-
-    },
-
-    /**
-     * Override default OrbitControl momentum update function
-     * @param {boolean} override
-     */
-    overrideUpdateMomentum: function( override = true ) {
-
-        const [ OrbitControls ] = this.controls;
-
-        OrbitControls.updateMomentum = override ? this.updateMomentum : this.defaults.updateMomentum;
-
-    },
-
-    /**
-     * Momentum Function
-     * @param {number} up 
-     * @param {number} left 
-     */
-    momentumFunction: function( up, left ) {
-
-        const { dampingFactor, maxMomentum } = this.options;
-
-        return [ 
-            THREE.Math.clamp( up * dampingFactor, -maxMomentum, maxMomentum ),
-            THREE.Math.clamp( left * dampingFactor, -maxMomentum, maxMomentum )
-        ];
 
     },
 
@@ -355,13 +327,13 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
      */
     setPanoMomentYaw: function (yaw) {
 
-        const { momentData, PanoMoments: { render, FrameCount, textureReady } } = this;
+        const { momentData, PanoMoments: { render, FrameCount } } = this;
 
         if(!momentData) return;
 
         render((yaw / 360) * FrameCount);
 
-        if (textureReady) this.getTexture().needsUpdate = true;
+        if (this.PanoMoments.textureReady) this.getTexture().needsUpdate = true;
 
     },
 
@@ -373,7 +345,10 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
         this.updateHeading();
         this.attachFOVListener( true );
         this.resetControlLimits( false );
-        this.overrideUpdateMomentum( true );
+
+        // This isn't working correctly when linking... Maybe for the same reason why the other control stuff is broken during linking. Possibly due to how linking handles the leave/enter events for fading.
+        const [ OrbitControls ] = this.controls;
+        Object.assign( OrbitControls, this.options );
 
         // Add update callback
         this.dispatchEvent( { 
@@ -391,7 +366,10 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
 
         this.attachFOVListener( false );
         this.resetControlLimits( true );
-        this.overrideUpdateMomentum( false );
+
+        // This isn't working correctly when linking... Maybe for the same reason why the other control stuff is broken during linking. Possibly due to how linking handles the leave/enter events for fading.
+        const [ OrbitControls ] = this.controls;
+        Object.assign( OrbitControls, this.defaults );
 
         // Remove update callback
         this.dispatchEvent( { 
