@@ -180,13 +180,14 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
 
         const { camera, momentData, status } = this;
 
-        if( (status !== PANOMOMENT.READY && status !== PANOMOMENT.COMPLETED) || !momentData ) return;
+        if( (status !== PANOMOMENT.FIRST_FRAME_DECODED && status !== PANOMOMENT.READY && status !== PANOMOMENT.COMPLETED) || !momentData ) return;
         
         const rotation = THREE.Math.radToDeg(camera.rotation.y) + 180;
         const yaw = (rotation * (momentData.clockwise ? -1.0 : 1.0) + 90) % 360;
 
         this.setPanoMomentYaw( yaw );
-        
+        if (this.PanoMoments.textureReady) this.getTexture().needsUpdate = true;
+
     },
 
     /**
@@ -200,7 +201,7 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
 
             this.updateHeading();
 
-            const texture = new THREE.VideoTexture( video );
+            const texture = new THREE.Texture( video );
             texture.minFilter = texture.magFilter = THREE.LinearFilter;
             texture.generateMipmaps = false;
             texture.format = THREE.RGBFormat;   
@@ -301,13 +302,11 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
      */
     setPanoMomentYaw: function (yaw) {
 
-        const { momentData, PanoMoments: { render, FrameCount, textureReady } } = this;
+        const { status, momentData, PanoMoments: { render, FrameCount } } = this;
 
-        if(!momentData) return;
+        if( (status !== PANOMOMENT.READY && status !== PANOMOMENT.COMPLETED) || !momentData ) return;
 
         render((yaw / 360) * FrameCount);
-
-        if (this.PanoMoments.textureReady) this.getTexture().needsUpdate = true;
 
     },
 
