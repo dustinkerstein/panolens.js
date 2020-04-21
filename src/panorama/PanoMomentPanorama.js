@@ -307,7 +307,7 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
 
         render((yaw / 360) * FrameCount);
 
-        if (textureReady) this.getTexture().needsUpdate = true;
+        if (this.PanoMoments.textureReady) this.getTexture().needsUpdate = true;
 
     },
 
