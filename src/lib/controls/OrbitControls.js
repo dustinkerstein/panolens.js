@@ -64,6 +64,7 @@ function OrbitControls ( object, domElement ) {
     // Momentum
   	this.momentumKeydownFactor = 1;
     this.momentumLimit = 0.04;
+    this.publicSphericalDelta = new THREE.Spherical();
 
     // Set to true to enable damping (inertia)
     // If damping is enabled, you must call controls.update() in your animation loop (Dustin note - but you may want to disable calling scope.Update in orbit controls if calling in the animation loop as this could have perforamncec impacts - https://github.com/mrdoob/three.js/issues/13234)
@@ -345,6 +346,7 @@ function OrbitControls ( object, domElement ) {
         if (this.enableDamping === true ) {
             thetaDelta = THREE.Math.clamp(thetaDelta, -this.momentumLimit, this.momentumLimit);
             phiDelta = THREE.Math.clamp(phiDelta, -this.momentumLimit, this.momentumLimit);
+            scope.publicSphericalDelta.theta = thetaDelta; // for orientation controls
         }
 
         theta += thetaDelta;

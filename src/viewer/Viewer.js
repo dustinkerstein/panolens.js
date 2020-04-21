@@ -172,7 +172,7 @@ Viewer.prototype = Object.assign( Object.create( THREE.EventDispatcher.prototype
 
         }
 
-        const orient = new DeviceOrientationControls( camera, container );
+        const orient = new DeviceOrientationControls( camera );
         orient.id = 'device-orientation';
         orient.index = CONTROLS.DEVICEORIENTATION;
         orient.enabled = false;
@@ -969,12 +969,13 @@ Viewer.prototype = Object.assign( Object.create( THREE.EventDispatcher.prototype
 
         index = ( index >= 0 && index < this.controls.length ) ? index : 0;
 
-        this.control.enabled = false;
+        // this.control.enabled = false;
+        this.control.enabled = true;
         this.control = this.controls[ index ];
         this.control.enabled = true;
-        this.control.update();
+        // this.control.update();
         
-        this.setControlCenter( this.getRaycastViewCenter() );
+        // this.setControlCenter( this.getRaycastViewCenter() );
         this.activateWidgetItem( index, undefined );
         this.onChange();
 
@@ -1068,21 +1069,13 @@ Viewer.prototype = Object.assign( Object.create( THREE.EventDispatcher.prototype
 
     rotateControlLeft: function ( left ) {
 
-        if ( this.control === this.OrbitControls ) {
-            this.control.rotateLeftStatic( left );
-        } else {
-            this.control.rotateLeft( left );
-        }
+        this.OrbitControls.rotateLeftStatic( left );
 
     },
 
     rotateControlUp: function ( up ) {
 
-        if ( this.control === this.OrbitControls ) {
-            this.control.rotateUpStatic( up );
-        } else {
-            this.control.rotateUp( up );
-        }
+        this.OrbitControls.rotateUpStatic( up );
 
     },
 
@@ -1745,7 +1738,12 @@ Viewer.prototype = Object.assign( Object.create( THREE.EventDispatcher.prototype
 
         this.updateCallbacks.forEach( function( callback ){ callback(); } );
 
-        this.control.update();
+        if ( this.control === this.OrbitControls ) { // Only OrbitControls
+            this.control.update();
+        } else { // Device Orientation now runs in tandem
+            this.OrbitControls.update();
+            this.DeviceOrientationControls.update(this.OrbitControls.publicSphericalDelta.theta);
+        }
 
         this.scene.traverse( function( child ){
             if ( child instanceof Infospot 
