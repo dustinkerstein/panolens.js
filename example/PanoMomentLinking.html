@@ -98,7 +98,7 @@
       var panorama1 = new PANOLENS.ImagePanorama( 'asset/textures/equirectangular/field.jpg' );
       var panorama2 = new PANOLENS.ImagePanorama( 'asset/textures/equirectangular/building.jpg' );
 
-      var viewer = new PANOLENS.Viewer({output: 'console', autoHideInfospot: false});
+      var viewer = new PANOLENS.Viewer({output: 'console', autoHideInfospot: false, alwaysUseMomentum: true, dampingFactor: .03 });
 
       const panoramas = [panomoment1, panomoment2, panorama1, panorama2];
 

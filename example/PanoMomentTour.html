@@ -1205,7 +1205,7 @@
       panoramaLinked2.addEventListener( 'progress', onProgressUpdate );
       panoramaLinked2.addEventListener('enter', onEnter);
 
-      viewer = new PANOLENS.Viewer( { container: panel, output: 'console', autoHideInfospot: false} );
+      viewer = new PANOLENS.Viewer( { container: panel, output: 'console', autoHideInfospot: false, alwaysUseMomentum: true, dampingFactor: .03 } );
       viewer.setCameraFov(80);
 
       var bamHidden = false;

@@ -34,7 +34,7 @@
       };
      
       var panorama = new PANOLENS.PanoMomentPanorama( identifier );
-      var viewer = new PANOLENS.Viewer( { output: 'console' } );
+      var viewer = new PANOLENS.Viewer( { output: 'console', alwaysUseMomentum: true, dampingFactor: .03 } );
       viewer.add( panorama );
     </script>
 

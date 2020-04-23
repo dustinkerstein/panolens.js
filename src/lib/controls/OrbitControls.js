@@ -62,10 +62,11 @@ function OrbitControls ( object, domElement ) {
     this.maxPolarAngle = Math.PI; // radians
 
     // Momentum
-    this.momentumKeydownFactor = 1;
+    this.momentumKeydownFactor = .05;
     this.speedLimit = 0.04;
     this.publicSphericalDelta = new THREE.Spherical();
-    this.moveMomentumEnabled = false;
+    this.alwaysUseMomentum = false;
+    this.alwaysUseMomentumFactor = 7.5;
 
     // Set to true to enable damping (inertia)
     // If damping is enabled, you must call controls.update() in your animation loop (Dustin note - but you may want to disable calling scope.Update in orbit controls if calling in the animation loop as this could have perforamncec impacts - https://github.com/mrdoob/three.js/issues/13234)
@@ -172,6 +173,7 @@ function OrbitControls ( object, domElement ) {
 
         }
 
+        angle = this.alwaysUseMomentum && !this.autoRotate ? angle /= this.alwaysUseMomentumFactor : angle; // Handle difference in necessary rotateSpeed constants.
         thetaDelta -= angle;
 
     };
@@ -184,6 +186,7 @@ function OrbitControls ( object, domElement ) {
 
         }
 
+        angle = this.alwaysUseMomentum && !this.autoRotate ? angle /= this.alwaysUseMomentumFactor : angle; // Handle difference in necessary rotateSpeed constants.
         phiDelta -= angle;
 
     };
@@ -382,7 +385,7 @@ function OrbitControls ( object, domElement ) {
 
         this.object.lookAt( this.target );
 
-        if ( this.enableDamping === true && ((this.moveMomentumEnabled && (state === STATE.ROTATE || state === STATE.TOUCH_ROTATE)) || state === STATE.NONE ) ) {
+        if ( !this.autoRotate && this.enableDamping === true && ((this.alwaysUseMomentum && (state === STATE.ROTATE || state === STATE.TOUCH_ROTATE)) || state === STATE.NONE ) ) {
 
             thetaDelta *= ( 1 - this.dampingFactor );
             phiDelta *= ( 1 - this.dampingFactor );
@@ -639,28 +642,30 @@ function OrbitControls ( object, domElement ) {
 
     function onKeyDown( event ) {
 
-        if ( scope.enabled === false || scope.noKeys === true || scope.noRotate === true ) return;
+        if ( scope.enabled === false || scope.noKeys === true || scope.noRotate === true || scope.autoRotate) return;
+
+        var updatedMomentumKeydownFactor = scope.alwaysUseMomentum && !scope.autoRotate ? scope.momentumKeydownFactor * scope.alwaysUseMomentumFactor : scope.momentumKeydownFactor; // Handle difference in necessary rotateSpeed constants.
 
         switch ( event.keyCode ) {
 
         case scope.keys.UP:
             keyUp = true;
-            scope.rotateUp( scope.rotateSpeed * scope.momentumKeydownFactor );
+            scope.rotateUp( scope.rotateSpeed * updatedMomentumKeydownFactor );
             break;
 
         case scope.keys.BOTTOM:
             keyBottom = true;
-            scope.rotateUp( - scope.rotateSpeed * scope.momentumKeydownFactor );
+            scope.rotateUp( - scope.rotateSpeed * updatedMomentumKeydownFactor );
             break;
 
         case scope.keys.LEFT:
             keyLeft = true;
-            scope.rotateLeft( scope.rotateSpeed * scope.momentumKeydownFactor );
+            scope.rotateLeft( scope.rotateSpeed * updatedMomentumKeydownFactor );
             break;
 
         case scope.keys.RIGHT:
             keyRight = true;
-            scope.rotateLeft( - scope.rotateSpeed * scope.momentumKeydownFactor );
+            scope.rotateLeft( - scope.rotateSpeed * updatedMomentumKeydownFactor );
             break;
 
         }

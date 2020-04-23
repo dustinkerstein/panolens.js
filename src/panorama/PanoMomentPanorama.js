@@ -12,9 +12,8 @@ const PANOMOMENT = {
 /**
  * PanoMoments Panorama
  * @param {object} identifier PanoMoment identifier
- * @param {object} options misc options for PanoMoments
  */
-function PanoMomentPanorama ( identifier, options = {} ) {
+function PanoMomentPanorama ( identifier ) {
 
     Panorama.call( this );
 
@@ -23,11 +22,6 @@ function PanoMomentPanorama ( identifier, options = {} ) {
     this.PanoMoments = null;
     this.momentData = null;
     this.status = PANOMOMENT.NONE;
-    this.options = Object.assign( {
-        speedLimit: .04,
-        rotateSpeed: -.02,
-        moveMomentumEnabled: true
-    }, options );
 
     // Panolens
     this.camera = null;
@@ -74,8 +68,8 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
      */
     onPanolensControls: function( { controls } ) {
 
-        const [ { minPolarAngle, maxPolarAngle, speedLimit, rotateSpeed, moveMomentumEnabled } ] = controls;
-        Object.assign( this.defaults, { minPolarAngle, maxPolarAngle, speedLimit, rotateSpeed, moveMomentumEnabled } );
+        const [ { minPolarAngle, maxPolarAngle } ] = controls;
+        Object.assign( this.defaults, { minPolarAngle, maxPolarAngle } );
         
         this.controls = controls;
 
@@ -346,9 +340,6 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
         this.attachFOVListener( true );
         this.resetControlLimits( false );
 
-        const [ OrbitControls ] = this.controls;
-        Object.assign( OrbitControls, this.options );
-
         // Add update callback
         this.dispatchEvent( { 
             type: 'panolens-viewer-handler', 
@@ -365,9 +356,6 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
 
         this.attachFOVListener( false );
         this.resetControlLimits( true );
-
-        const [ OrbitControls ] = this.controls;
-        Object.assign( OrbitControls, this.defaults );
 
         // Remove update callback
         this.dispatchEvent( { 

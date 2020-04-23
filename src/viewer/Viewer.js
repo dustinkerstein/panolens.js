@@ -38,6 +38,9 @@ import TWEEN from '@tweenjs/tween.js';
  * @param {number}  [options.autoRotateSpeed=2.0] - Auto rotate speed as in degree per second. Positive is counter-clockwise and negative is clockwise.
  * @param {number}  [options.autoRotateActivationDuration=5000] - Duration before auto rotatation when no user interactivity in ms
  * @param {THREE.Vector3} [options.initialLookAt=new THREE.Vector3( 0, 0, -Number.MAX_SAFE_INTEGER )] - Initial looking at vector
+ * @param {boolean} [options.alwaysUseMomentum=false] - Use momentum even during mouse/touch move
+ * @param {number} [options.dampingFactor=.07] - Damping factor used for momentum
+
  */
 function Viewer ( options = {} ) {
 
@@ -61,7 +64,9 @@ function Viewer ( options = {} ) {
         autoRotate: false,
         autoRotateSpeed: 2.0,
         autoRotateActivationDuration: 5000,
-        initialLookAt: new THREE.Vector3( 0, 0, -Number.MAX_SAFE_INTEGER )
+        initialLookAt: new THREE.Vector3( 0, 0, -Number.MAX_SAFE_INTEGER ),
+        alwaysUseMomentum: false,
+        dampingFactor: .07
 
     }, options );
 
@@ -155,7 +160,7 @@ Viewer.prototype = Object.assign( Object.create( THREE.EventDispatcher.prototype
 
     setupControls: function ( camera, container ) {
 
-        const { autoRotate, autoRotateSpeed, horizontalView } = this.options;
+        const { autoRotate, autoRotateSpeed, horizontalView, alwaysUseMomentum, dampingFactor } = this.options;
 
         const orbit = new OrbitControls( camera, container );
         orbit.id = 'orbit';
@@ -164,6 +169,8 @@ Viewer.prototype = Object.assign( Object.create( THREE.EventDispatcher.prototype
         orbit.noPan = true;
         orbit.autoRotate = autoRotate;
         orbit.autoRotateSpeed = autoRotateSpeed;
+        orbit.alwaysUseMomentum = alwaysUseMomentum;
+        orbit.dampingFactor = dampingFactor;
 
         if ( horizontalView ) {
 
