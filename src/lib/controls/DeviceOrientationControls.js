@@ -39,7 +39,6 @@ function DeviceOrientationControls ( object ) {
 
         window.addEventListener( 'orientationchange', onScreenOrientationChangeEvent, { passive: false } );
         window.addEventListener( 'deviceorientation', onDeviceOrientationChangeEvent, { passive: false } );
-        window.addEventListener( 'deviceorientation', this.update, { passive: true } );
 
     }.bind( this );
 
@@ -143,6 +142,8 @@ function DeviceOrientationControls ( object ) {
         scope.disconnect();
 
     };
+
+    this.connect();
 
 };
 
