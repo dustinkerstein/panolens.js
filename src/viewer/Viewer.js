@@ -172,7 +172,7 @@ Viewer.prototype = Object.assign( Object.create( THREE.EventDispatcher.prototype
 
         }
 
-        const orient = new DeviceOrientationControls( camera, container );
+        const orient = new DeviceOrientationControls( camera );
         orient.id = 'device-orientation';
         orient.index = CONTROLS.DEVICEORIENTATION;
         orient.enabled = false;
@@ -998,14 +998,12 @@ Viewer.prototype = Object.assign( Object.create( THREE.EventDispatcher.prototype
 
         if( this.control instanceof DeviceOrientationControls ) this.control.disconnect();
 
-        this.control.enabled = false;
+        this.control.enabled = true;
         this.control = this.controls[ index ];
         this.control.enabled = true;
-        this.control.update();
         
         if( this.control instanceof DeviceOrientationControls ) this.control.connect();
         
-        this.setControlCenter( this.getRaycastViewCenter() );
         this.activateWidgetItem( index, undefined );
         this.onChange();
 
@@ -1099,13 +1097,13 @@ Viewer.prototype = Object.assign( Object.create( THREE.EventDispatcher.prototype
 
     rotateControlLeft: function ( left ) {
 
-        this.control.rotateLeft( left );
+        this.OrbitControls.rotateLeftStatic( left );
 
     },
 
     rotateControlUp: function ( up ) {
 
-        this.control.rotateUp( up );
+        this.OrbitControls.rotateUpStatic( up );
 
     },
 
@@ -1768,7 +1766,12 @@ Viewer.prototype = Object.assign( Object.create( THREE.EventDispatcher.prototype
 
         this.updateCallbacks.forEach( function( callback ){ callback(); } );
 
-        this.control.update();
+        if ( this.control === this.OrbitControls ) { // Only OrbitControls
+            this.control.update();
+        } else { // Device Orientation now runs in tandem
+            this.OrbitControls.update();
+            this.DeviceOrientationControls.update(this.OrbitControls.publicSphericalDelta.theta);
+        }
 
         this.scene.traverse( function( child ){
             if ( child instanceof Infospot 

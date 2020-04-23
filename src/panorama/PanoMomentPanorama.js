@@ -24,8 +24,7 @@ function PanoMomentPanorama ( identifier, options = {} ) {
     this.momentData = null;
     this.status = PANOMOMENT.NONE;
     this.options = Object.assign( {
-        dampingFactor: 0.95,
-        maxMomentum: 10
+        momentumLimit: .04
     }, options );
 
     // Panolens
@@ -46,7 +45,7 @@ function PanoMomentPanorama ( identifier, options = {} ) {
     this.addEventListener( 'panolens-controls', data => this.onPanolensControls( data ) );
     this.addEventListener( 'enter-fade-start', () => this.enter() );
     this.addEventListener( 'leave-complete', () => this.leave() );
-    this.addEventListener( PANOMOMENT.LOAD, () => this.disableControl() );
+    this.addEventListener( 'load-start', () => this.disableControl() );
     this.addEventListener( PANOMOMENT.READY, () => this.enableControl() );
 
 }
@@ -73,8 +72,8 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
      */
     onPanolensControls: function( { controls } ) {
 
-        const [ { minPolarAngle, maxPolarAngle, updateMomentum } ] = controls;
-        Object.assign( this.defaults, { minPolarAngle, maxPolarAngle, updateMomentum } );
+        const [ { minPolarAngle, maxPolarAngle, updateMomentum, momentumLimit } ] = controls;
+        Object.assign( this.defaults, { minPolarAngle, maxPolarAngle, updateMomentum, momentumLimit } );
         
         this.controls = controls;
 
@@ -241,6 +240,9 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
         const rotation = THREE.Math.radToDeg(camera.rotation.y) + 180;
         const yaw = (rotation * (momentData.clockwise ? -1.0 : 1.0) + 90) % 360;
 
+        // textureReady() must be called before render() 
+        if (this.PanoMoments.textureReady()) this.getTexture().needsUpdate = true;
+
         this.setPanoMomentYaw( yaw );
         
     },
@@ -254,7 +256,7 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
 
             this.momentData = momentData;
 
-            const texture = new THREE.VideoTexture( video );
+            const texture = new THREE.Texture( video );
             texture.minFilter = texture.magFilter = THREE.LinearFilter;
             texture.generateMipmaps = false;
             texture.format = THREE.RGBFormat;   
@@ -358,9 +360,6 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
         if( (status !== PANOMOMENT.READY && status !== PANOMOMENT.COMPLETED) || !momentData ) return;
 
         render((yaw / 360) * FrameCount);
-
-        // textureReady updated 
-        if (this.PanoMoments.textureReady) this.getTexture().needsUpdate = true;
 
     },
 
