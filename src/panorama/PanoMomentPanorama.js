@@ -24,7 +24,9 @@ function PanoMomentPanorama ( identifier, options = {} ) {
     this.momentData = null;
     this.status = PANOMOMENT.NONE;
     this.options = Object.assign( {
-        momentumLimit: .04
+        speedLimit: .04,
+        rotateSpeed: -.02,
+        moveMomentumEnabled: true
     }, options );
 
     // Panolens
@@ -72,8 +74,8 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
      */
     onPanolensControls: function( { controls } ) {
 
-        const [ { minPolarAngle, maxPolarAngle, updateMomentum, momentumLimit } ] = controls;
-        Object.assign( this.defaults, { minPolarAngle, maxPolarAngle, updateMomentum, momentumLimit } );
+        const [ { minPolarAngle, maxPolarAngle, speedLimit, rotateSpeed, moveMomentumEnabled } ] = controls;
+        Object.assign( this.defaults, { minPolarAngle, maxPolarAngle, speedLimit, rotateSpeed, moveMomentumEnabled } );
         
         this.controls = controls;
 
@@ -120,34 +122,6 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
         const event = { type: 'panolens-viewer-handler', method: 'disableControl' };
 
         requestAnimationFrame( this.dispatchEvent.bind( this, event ) );
-
-    },
-
-    /**
-     * Override default OrbitControl momentum update function
-     * @param {boolean} override
-     */
-    overrideUpdateMomentum: function( override = true ) {
-
-        const [ OrbitControls ] = this.controls;
-
-        OrbitControls.updateMomentum = override ? this.updateMomentum : this.defaults.updateMomentum;
-
-    },
-
-    /**
-     * Momentum Function
-     * @param {number} up 
-     * @param {number} left 
-     */
-    momentumFunction: function( up, left ) {
-
-        const { dampingFactor, maxMomentum } = this.options;
-
-        return [ 
-            THREE.Math.clamp( up * dampingFactor, -maxMomentum, maxMomentum ),
-            THREE.Math.clamp( left * dampingFactor, -maxMomentum, maxMomentum )
-        ];
 
     },
 
@@ -371,7 +345,9 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
         this.updateHeading();
         this.attachFOVListener( true );
         this.resetControlLimits( false );
-        this.overrideUpdateMomentum( true );
+
+        const [ OrbitControls ] = this.controls;
+        Object.assign( OrbitControls, this.options );
 
         // Add update callback
         this.dispatchEvent( { 
@@ -389,7 +365,9 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
 
         this.attachFOVListener( false );
         this.resetControlLimits( true );
-        this.overrideUpdateMomentum( false );
+
+        const [ OrbitControls ] = this.controls;
+        Object.assign( OrbitControls, this.defaults );
 
         // Remove update callback
         this.dispatchEvent( { 

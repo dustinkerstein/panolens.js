@@ -44,7 +44,7 @@ function OrbitControls ( object, domElement ) {
 
     // Set to true to disable this control
     this.noRotate = false;
-    this.rotateSpeed = -.02;
+    this.rotateSpeed = -0.15;
 
     // Set to true to disable this control
     this.noPan = true;
@@ -63,8 +63,9 @@ function OrbitControls ( object, domElement ) {
 
     // Momentum
     this.momentumKeydownFactor = 1;
-    this.momentumLimit = 0.04;
+    this.speedLimit = 0.04;
     this.publicSphericalDelta = new THREE.Spherical();
+    this.moveMomentumEnabled = false;
 
     // Set to true to enable damping (inertia)
     // If damping is enabled, you must call controls.update() in your animation loop (Dustin note - but you may want to disable calling scope.Update in orbit controls if calling in the animation loop as this could have perforamncec impacts - https://github.com/mrdoob/three.js/issues/13234)
@@ -344,10 +345,11 @@ function OrbitControls ( object, domElement ) {
         }
 
         if (this.enableDamping === true ) {
-            thetaDelta = THREE.Math.clamp(thetaDelta, -this.momentumLimit, this.momentumLimit);
-            phiDelta = THREE.Math.clamp(phiDelta, -this.momentumLimit, this.momentumLimit);
-            scope.publicSphericalDelta.theta = thetaDelta; // for orientation controls
+            thetaDelta = THREE.Math.clamp(thetaDelta, -this.speedLimit, this.speedLimit);
+            phiDelta = THREE.Math.clamp(phiDelta, -this.speedLimit, this.speedLimit);
         }
+
+        scope.publicSphericalDelta.theta = thetaDelta; // DeviceOrientationControl support
 
         theta += thetaDelta;
         phi += phiDelta;
@@ -380,7 +382,7 @@ function OrbitControls ( object, domElement ) {
 
         this.object.lookAt( this.target );
 
-        if ( this.enableDamping === true ) {
+        if ( this.enableDamping === true && ((this.moveMomentumEnabled && (state === STATE.ROTATE || state === STATE.TOUCH_ROTATE)) || state === STATE.NONE ) ) {
 
             thetaDelta *= ( 1 - this.dampingFactor );
             phiDelta *= ( 1 - this.dampingFactor );
