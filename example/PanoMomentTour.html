@@ -882,8 +882,10 @@
         credit.style.display = 'none';
         alignment.style.display = 'none';
 
-        buyButton1.material.visible = true; // Workaround for buy button if it was left visible
-        buyButton1.onDismiss();
+        if (buyButton1.material) {
+          buyButton1.material.visible = true; // Workaround for buy button if it was left visible
+          buyButton1.onDismiss();
+        }
 
         stopTypedAndCancelDelayExecute();
 
