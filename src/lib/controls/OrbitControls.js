@@ -115,6 +115,8 @@ function OrbitControls ( object, domElement ) {
     const dollyEnd = new THREE.Vector2();
     const dollyDelta = new THREE.Vector2();
 
+    let keyUp, keyBottom, keyLeft, keyRight;
+
     let theta = 0;
     let phi = 0;
     let phiDelta = 0;

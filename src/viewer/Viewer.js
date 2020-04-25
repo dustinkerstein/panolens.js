@@ -65,7 +65,7 @@ function Viewer ( options = {} ) {
         autoRotateSpeed: 2.0,
         autoRotateActivationDuration: 5000,
         initialLookAt: new THREE.Vector3( 0, 0, -Number.MAX_SAFE_INTEGER ),
-        momentum: true,
+        momentum: false,
         momentumFactor: 2.5,
         dampingFactor: .07
 
