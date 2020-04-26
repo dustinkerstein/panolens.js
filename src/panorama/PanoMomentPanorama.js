@@ -13,11 +13,12 @@ const PANOMOMENT = {
  * PanoMoments Panorama
  * @param {object} identifier PanoMoment identifier
  */
-function PanoMomentPanorama ( identifier, isPlane ) {
+function PanoMomentPanorama ( identifier, options = {} ) {
 
-    if (isPlane) { // This should probably just be defined by the PanoMoment's metadata, but that would require refactoring quite a bit and maybe SDK changes to make the metadata API call synchronous...
-        this.plane = true;
-    }
+
+    this.options = Object.assign( {
+        plane: false
+    }, options );
 
     Panorama.call( this );
 
@@ -172,7 +173,7 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
         this.dispatchEvent( { type: 'panolens-viewer-handler', method: 'rotateControlLeft', data: angle } );
 
         // uv offset
-        if (!this.plane) {
+        if (!this.options.plane) {
             this.material.uniforms.offset.value.x = (max_horizontal_fov / 360 + .25) % 1;
         }
 
@@ -212,7 +213,7 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
         const yaw = (rotation * (momentData.clockwise ? -1.0 : 1.0) + 90) % 360;
 
         // textureReady() must be called before render() 
-        if (this.plane && this.PanoMoments.textureReady()) {
+        if (this.options.plane && this.PanoMoments.textureReady()) {
             this.material.map.needsUpdate = true;
         } else if (this.PanoMoments.textureReady()) {
             this.getTexture().needsUpdate = true;
@@ -231,7 +232,7 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
 
             this.momentData = momentData;
 
-            if (this.plane) {
+            if (this.options.plane) {
                 this.camera.add(this);
                 this.position.set(0,0,-2);
                 var windowAspectRatio = window.innerWidth / window.innerHeight;
@@ -252,7 +253,7 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
             texture.generateMipmaps = false;
             texture.format = THREE.RGBFormat; 
 
-            if (this.plane) {
+            if (this.options.plane) {
                 this.material.map = texture;
                 texture.needsUpdate = true;
             } else {

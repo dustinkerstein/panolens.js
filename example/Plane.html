@@ -27,6 +27,7 @@
     <script src="../build/panolens.js"></script>
 
     <script>
+
       var identifier1 = {
         moment_id: "5b08295bdcc6b400130d942a",
         variation: 101,
@@ -39,18 +40,26 @@
         public_api_key: "63b130be-2f20-40a2-8211-355b607f340a"
       };
      
-      var panomoment1 = new PANOLENS.PanoMomentPanorama( identifier1, true );
-      var panomoment2 = new PANOLENS.PanoMomentPanorama( identifier2, false );
+      var panomoment1 = new PANOLENS.PanoMomentPanorama( identifier1, { plane: true } );
+      var panomoment2 = new PANOLENS.PanoMomentPanorama( identifier2 );
+      var panorama1 = new PANOLENS.ImagePanorama( 'asset/textures/equirectangular/building.jpg', { plane: true } );
+      var video1 = new PANOLENS.VideoPanorama( 'asset/textures/video/ClashofClans.mp4', { autoplay: true, muted: false, plane: true } );
+
       var viewer = new PANOLENS.Viewer( { output: 'console', autoHideInfospot: false, momentum: true, momentumFactor: 7.5 } );
-      viewer.add( panomoment1, panomoment2 );
+      viewer.add( panomoment1, panomoment2, panorama1, video1 );
 
       var infospot = new PANOLENS.Infospot(0.1);
       infospot.position.set( 0,0,0 );
       infospot.addHoverText( 'Tony Hawk' );
+      
       panomoment1.add( infospot );
 
       panomoment1.link( panomoment2, new THREE.Vector3( 0.4,-0.4,0 ), .1 );
+      panomoment1.link( panorama1, new THREE.Vector3( -0.4,-0.4,0 ), .1 );
+      panomoment1.link( video1, new THREE.Vector3( 0.4,0.4,0 ), .1 );
+      panorama1.link( panomoment1, new THREE.Vector3( 0,0,0 ), .1 );
       panomoment2.link( panomoment1, new THREE.Vector3( 5000.00, -1635.54, -1325.98 ) );
+      video1.link( panomoment1, new THREE.Vector3( 0,0,0), .1 );
 
       viewer.panorama.dispatchEvent( { 
           type: 'panolens-viewer-handler', 

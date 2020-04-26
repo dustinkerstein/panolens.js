@@ -57,7 +57,7 @@ Panorama.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
      */
     createGeometry: function ( edgeLength ) {
 
-        if (this.plane) {
+        if (this.options.plane) {
            return new THREE.PlaneGeometry(1, 1);
         }
 
@@ -76,7 +76,7 @@ Panorama.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
 
         var material;
 
-        if (this.plane) {
+        if (this.options.plane) {
             material = new THREE.MeshBasicMaterial( { opacity: 0, transparent: true, side: THREE.FrontSide } );
         } else {
             const { fragmentShader, vertexShader } = EquirectShader;

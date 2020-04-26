@@ -16,9 +16,6 @@ import * as THREE from 'three';
  */
 function VideoPanorama ( src, options = {} ) {
 
-    Panorama.call( this );
-
-    this.src = src;
     this.options = Object.assign( {
 
         videoElement: document.createElement( 'video' ),
@@ -26,9 +23,14 @@ function VideoPanorama ( src, options = {} ) {
         muted: true,
         autoplay: false,
         playsinline: true,
-        crossOrigin: 'anonymous'
+        crossOrigin: 'anonymous',
+        plane: false
 
     }, options );
+
+    Panorama.call( this );
+
+    this.src = src;
 
     this.videoElement = this.options.videoElement;
     this.videoProgress = 0;
@@ -39,12 +41,23 @@ function VideoPanorama ( src, options = {} ) {
     this.addEventListener( 'enter-fade-start', this.resumeVideoProgress.bind( this ) );
     this.addEventListener( 'video-toggle', this.toggleVideo.bind( this ) );
     this.addEventListener( 'video-time', this.setVideoCurrentTime.bind( this ) );
+    this.addEventListener( 'panolens-camera', data => this.onPanolensCamera( data ) );
 
 };
 
 VideoPanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
 
     constructor: VideoPanorama,
+
+    /**
+     * When camera reference dispatched
+     * @param {THREE.Camera} camera 
+     */
+    onPanolensCamera: function( { camera } ) {
+
+        this.camera = camera;
+
+    },
 
     isMobile: function () {
 
@@ -85,6 +98,22 @@ VideoPanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
         const onloadeddata = function() {
 
             const videoTexture = this.setVideoTexture( video );
+
+            if (this.options.plane) {
+                this.camera.add(this);
+                this.position.set(0,0,-2);
+                var windowAspectRatio = window.innerWidth / window.innerHeight;
+                var imageAspectRatio = videoTexture.image.videoWidth / videoTexture.image.videoHeight;
+                var distanceToPlane = Math.abs(this.position.z);
+                var limit;
+                if (imageAspectRatio < windowAspectRatio) {
+                    limit = (Math.tan (THREE.Math.degToRad(this.camera.fov * 0.5)) * distanceToPlane * 2.0) * imageAspectRatio; 
+                } else {
+                    limit = (Math.tan (THREE.Math.degToRad(this.camera.fov * 0.5)) * distanceToPlane * 2.0) * windowAspectRatio 
+                }
+                var calcScale = new THREE.Vector3 (limit, limit / imageAspectRatio, 1);
+                this.scale.set(calcScale.x,calcScale.y,1);
+            }
 
             if ( autoplay ) {
 
@@ -214,7 +243,11 @@ VideoPanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
         videoTexture.magFilter = THREE.LinearFilter;
         videoTexture.format = THREE.RGBFormat;
 
-        this.updateTexture( videoTexture );
+        if (this.options.plane) {
+            this.material.map = videoTexture;
+        } else{
+            this.updateTexture( videoTexture );
+        }
 
         return videoTexture;
 	

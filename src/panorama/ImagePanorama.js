@@ -7,18 +7,34 @@ import * as THREE from 'three';
  * @constructor
  * @param {string} image - Image url or HTMLImageElement
  */
-function ImagePanorama ( image ) {
+function ImagePanorama ( image, options = {} ) {
+
+    this.options = Object.assign( {
+        plane: false
+    }, options );
 
     Panorama.call( this );
 
     this.src = image;
     this.type = 'image_panorama';
 
+    this.addEventListener( 'panolens-camera', data => this.onPanolensCamera( data ) );
+
 }
 
 ImagePanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
 
     constructor: ImagePanorama,
+
+    /**
+     * When camera reference dispatched
+     * @param {THREE.Camera} camera 
+     */
+    onPanolensCamera: function( { camera } ) {
+
+        this.camera = camera;
+
+    },
 
     /**
      * Load image asset
@@ -58,10 +74,30 @@ ImagePanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
      */
     onLoad: function ( texture ) {
 
+        if (this.options.plane) {
+            this.camera.add(this);
+            this.position.set(0,0,-2);
+            var windowAspectRatio = window.innerWidth / window.innerHeight;
+            var imageAspectRatio = texture.image.width / texture.image.height;
+            var distanceToPlane = Math.abs(this.position.z);
+            var limit;
+            if (imageAspectRatio < windowAspectRatio) {
+                limit = (Math.tan (THREE.Math.degToRad(this.camera.fov * 0.5)) * distanceToPlane * 2.0) * imageAspectRatio; 
+            } else {
+                limit = (Math.tan (THREE.Math.degToRad(this.camera.fov * 0.5)) * distanceToPlane * 2.0) * windowAspectRatio 
+            }
+            var calcScale = new THREE.Vector3 (limit, limit / imageAspectRatio, 1);
+            this.scale.set(calcScale.x,calcScale.y,1);
+        }
+
         texture.minFilter = texture.magFilter = THREE.LinearFilter;
         texture.needsUpdate = true;
 		
-        this.updateTexture( texture );
+        if (this.options.plane) {
+            this.material.map = texture;
+        } else {
+            this.updateTexture( texture );
+        }
 
         window.requestAnimationFrame( Panorama.prototype.onLoad.bind( this ) );
 
