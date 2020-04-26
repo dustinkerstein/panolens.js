@@ -13,7 +13,11 @@ const PANOMOMENT = {
  * PanoMoments Panorama
  * @param {object} identifier PanoMoment identifier
  */
-function PanoMomentPanorama ( identifier ) {
+function PanoMomentPanorama ( identifier, isPlane ) {
+
+    if (isPlane) { // This should probably just be defined by the PanoMoment's metadata, but that would require refactoring quite a bit and maybe SDK changes to make the metadata API call synchronous...
+        this.plane = true;
+    }
 
     Panorama.call( this );
 
@@ -168,7 +172,9 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
         this.dispatchEvent( { type: 'panolens-viewer-handler', method: 'rotateControlLeft', data: angle } );
 
         // uv offset
-        this.material.uniforms.offset.value.x = (max_horizontal_fov / 360 + .25) % 1;
+        if (!this.plane) {
+            this.material.uniforms.offset.value.x = (max_horizontal_fov / 360 + .25) % 1;
+        }
 
         // control update
         this.resetControlLimits( false );
@@ -206,7 +212,11 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
         const yaw = (rotation * (momentData.clockwise ? -1.0 : 1.0) + 90) % 360;
 
         // textureReady() must be called before render() 
-        if (this.PanoMoments.textureReady()) this.getTexture().needsUpdate = true;
+        if (this.plane && this.PanoMoments.textureReady()) {
+            this.material.map.needsUpdate = true;
+        } else if (this.PanoMoments.textureReady()) {
+            this.getTexture().needsUpdate = true;
+        }
 
         this.setPanoMomentYaw( yaw );
         
@@ -221,11 +231,33 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
 
             this.momentData = momentData;
 
+            if (this.plane) {
+                this.camera.add(this);
+                this.position.set(0,0,-2);
+                var windowAspectRatio = window.innerWidth / window.innerHeight;
+                var videoAspectRatio = this.momentData.aspect_ratio ? this.momentData.aspect_ratio : 1.7777777; // Shouldn't really fall back to 16/9 but it's okay for now
+                var distanceToPlane = Math.abs(this.position.z);
+                var limit;
+                if (videoAspectRatio < windowAspectRatio) {
+                    limit = (Math.tan (THREE.Math.degToRad(this.camera.fov * 0.5)) * distanceToPlane * 2.0) * videoAspectRatio; 
+                } else {
+                    limit = (Math.tan (THREE.Math.degToRad(this.camera.fov * 0.5)) * distanceToPlane * 2.0) * windowAspectRatio 
+                }
+                var calcScale = new THREE.Vector3 (limit, limit / videoAspectRatio, 1);
+                this.scale.set(calcScale.x,calcScale.y,1);
+            }
+
             const texture = new THREE.Texture( video );
             texture.minFilter = texture.magFilter = THREE.LinearFilter;
             texture.generateMipmaps = false;
-            texture.format = THREE.RGBFormat;   
-            this.updateTexture( texture ); 
+            texture.format = THREE.RGBFormat; 
+
+            if (this.plane) {
+                this.material.map = texture;
+                texture.needsUpdate = true;
+            } else {
+                this.updateTexture( texture );   
+            }
 
             this.dispatchEvent( { type: PANOMOMENT.FIRST_FRAME_DECODED } );
             console.log('PanoMoments First Frame Decoded');

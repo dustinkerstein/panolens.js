@@ -57,6 +57,10 @@ Panorama.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
      */
     createGeometry: function ( edgeLength ) {
 
+        if (this.plane) {
+           return new THREE.PlaneGeometry(1, 1);
+        }
+
         return new THREE.BoxBufferGeometry( edgeLength, edgeLength, edgeLength );
 
     },
@@ -70,23 +74,29 @@ Panorama.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
      */
     createMaterial: function ( repeat = new THREE.Vector2( 1, 1 ), offset = new THREE.Vector2( 0, 0 ) ) {
 
-        const { fragmentShader, vertexShader } = EquirectShader;
-        const uniforms = THREE.UniformsUtils.clone( EquirectShader.uniforms );
+        var material;
+
+        if (this.plane) {
+            material = new THREE.MeshBasicMaterial( { opacity: 0, transparent: true, side: THREE.FrontSide } );
+        } else {
+            const { fragmentShader, vertexShader } = EquirectShader;
+            const uniforms = THREE.UniformsUtils.clone( EquirectShader.uniforms );
+            
+            uniforms.repeat.value.copy( repeat );
+            uniforms.offset.value.copy( offset );
+            uniforms.opacity.value = 0.0;
+
+            material = new THREE.ShaderMaterial( {
+
+                fragmentShader,
+                vertexShader,
+                uniforms,
+                side: THREE.BackSide,
+                transparent: true,
+                opacity: 0
         
-        uniforms.repeat.value.copy( repeat );
-        uniforms.offset.value.copy( offset );
-        uniforms.opacity.value = 0.0;
-
-        const material = new THREE.ShaderMaterial( {
-
-            fragmentShader,
-            vertexShader,
-            uniforms,
-            side: THREE.BackSide,
-            transparent: true,
-            opacity: 0
-    
-        } );
+            } );
+        }
 
         return material;
 
