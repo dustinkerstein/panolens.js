@@ -27,20 +27,30 @@
     <script src="../build/panolens.js"></script>
 
     <script>
-      var identifier = {
+      var identifier1 = {
         moment_id: "5b08295bdcc6b400130d942a",
         variation: 101,
         public_api_key: "63b130be-2f20-40a2-8211-355b607f340a"
       };
-     
-      var panomoment = new PANOLENS.PanoMomentPanorama( identifier, true );
-      var viewer = new PANOLENS.Viewer( { output: 'console', autoHideInfospot: false, momentum: true, momentumFactor: 7.5 } );
-      viewer.add( panomoment );
 
-      var infospot = new PANOLENS.Infospot(.1);
+      var identifier2 = {
+        moment_id: "58a5d20affe5e3000bdb34c0",
+        variation: 101,
+        public_api_key: "63b130be-2f20-40a2-8211-355b607f340a"
+      };
+     
+      var panomoment1 = new PANOLENS.PanoMomentPanorama( identifier1, true );
+      var panomoment2 = new PANOLENS.PanoMomentPanorama( identifier2, false );
+      var viewer = new PANOLENS.Viewer( { output: 'console', autoHideInfospot: false, momentum: true, momentumFactor: 7.5 } );
+      viewer.add( panomoment1, panomoment2 );
+
+      var infospot = new PANOLENS.Infospot(0.1);
       infospot.position.set( 0,0,0 );
       infospot.addHoverText( 'Tony Hawk' );
-      panomoment.add( infospot );
+      panomoment1.add( infospot );
+
+      panomoment1.link( panomoment2, new THREE.Vector3( 0.4,-0.4,0 ), .1 );
+      panomoment2.link( panomoment1, new THREE.Vector3( 5000.00, -1635.54, -1325.98 ) );
 
       viewer.panorama.dispatchEvent( { 
           type: 'panolens-viewer-handler', 
@@ -50,7 +60,7 @@
 
       function updateCallback () {
 
-        if (viewer.panorama == panomoment) {
+        if (viewer.panorama == panomoment1) {
           var currentYaw = THREE.Math.radToDeg(viewer.camera.rotation.y) + 180;
           if (currentYaw <= 360 && currentYaw >= 140) {
             infospot.material.visible = true;
