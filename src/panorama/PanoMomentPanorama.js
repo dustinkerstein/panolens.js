@@ -57,7 +57,7 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
      */
     onWindowResize: function( { width, height } ) {
 
-        if(this.active) this.resetFOVLimits(false);
+        if(this.active) this.resetControlLimits(false);
 
     },
 
