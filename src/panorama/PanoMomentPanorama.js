@@ -37,6 +37,7 @@ function PanoMomentPanorama ( identifier ) {
     this.updateMomentum = ( up, left ) => this.momentumFunction( up, left );
 
     // Event Listeners
+    this.addEventListener( 'window-resize', data => this.onWindowResize( data ) );
     this.addEventListener( 'panolens-camera', data => this.onPanolensCamera( data ) );
     this.addEventListener( 'panolens-controls', data => this.onPanolensControls( data ) );
     this.addEventListener( 'enter-fade-start', () => this.enter() );
@@ -49,6 +50,16 @@ function PanoMomentPanorama ( identifier ) {
 PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
 
     constructor: PanoMomentPanorama,
+
+    /**
+     * When window is resized
+     * @param {width, height} 
+     */
+    onWindowResize: function( { width, height } ) {
+
+        this.resetFOVLimits(false);
+
+    },
 
     /**
      * When camera reference dispatched
