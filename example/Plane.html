@@ -45,12 +45,12 @@
       var panorama1 = new PANOLENS.ImagePanorama( 'asset/textures/equirectangular/building.jpg', { plane: true } );
       var video1 = new PANOLENS.VideoPanorama( 'asset/textures/video/ClashofClans.mp4', { autoplay: true, muted: false, plane: true } );
 
-      var viewer = new PANOLENS.Viewer( { output: 'console', autoHideInfospot: false, momentum: true, momentumFactor: 7.5 } );
+      var viewer = new PANOLENS.Viewer( { output: 'console', autoHideInfospot: false, momentum: true, momentumFactor: 7.5, dampingFactor: 0.025 } );
       viewer.add( panomoment1, panomoment2, panorama1, video1 );
 
       var infospot = new PANOLENS.Infospot(0.1);
       infospot.position.set( 0,0,0 );
-      infospot.addHoverText( 'Tony Hawk' );
+      infospot.addHoverText( 'Angular Sensitive Infospot' );
       
       panomoment1.add( infospot );
 

@@ -261,6 +261,8 @@ PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype 
             if (this.options.plane) {
                 this.material.map = texture;
                 texture.needsUpdate = true;
+                const [ OrbitControls ] = this.controls;
+                OrbitControls.rotateSpeed = OrbitControls.rotateSpeed * this.momentData.speed_modifier; // This hack doesn't get reset on linking
             } else {
                 this.updateTexture( texture );   
             }
