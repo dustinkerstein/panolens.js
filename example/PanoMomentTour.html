@@ -717,17 +717,11 @@
       }
 
       function grandCentralTour() {
-        if (viewer.getControlId() == "device-orientation") {
-          viewer.enableControl(0);
-        }
         viewer.panorama.toggleInfospotVisibility(false);
         onGrandCentralStory1();
       }
 
       function conversionLanding () {
-        if (viewer.getControlId() == "device-orientation") {
-          viewer.enableControl(0);
-        }
         setStopTourButton ();
         type( paragraphs.triggers, function() { 
         stopTypedAndCancelDelayExecute();
@@ -737,9 +731,6 @@
       }
 
       function alignmentLanding () {
-        if (viewer.getControlId() == "device-orientation") {
-          viewer.enableControl(0);
-        }
         setStopTourButton ();
         type( paragraphs.alignment, function() { 
         stopTypedAndCancelDelayExecute();
@@ -749,9 +740,6 @@
       }
 
       function linkedLanding () {
-        if (viewer.getControlId() == "device-orientation") {
-          viewer.enableControl(0);
-        }
         setStopTourButton ();
         type( paragraphs.linked, function() { 
         stopTypedAndCancelDelayExecute();
@@ -761,9 +749,6 @@
       }
 
       function cubaLanding () {
-        if (viewer.getControlId() == "device-orientation") {
-          viewer.enableControl(0);
-        }
         setStopTourButton ();
         type( paragraphs.cuba_parallax, function() { 
         stopTypedAndCancelDelayExecute();
@@ -773,9 +758,6 @@
       }
 
       function onCompositeStory1 () {
-        if (viewer.getControlId() == "device-orientation") {
-          viewer.enableControl(0);
-        }
         buyButton1.material.visible = true; // Workaround for losing focus below in delayExecute
         buyButton1.onDismiss();
         delayExecute( viewer.tweenControlCenterByObject( hiddenInfospot1, 8000, TWEEN.Easing[ 'Exponential' ][ 'Out' ] ), tweeningDelay );
@@ -876,6 +858,10 @@
       }
 
       function onEnter () {
+        
+        if (viewer.getControlId() == "device-orientation") {
+          viewer.enableControl(0);
+        }
 
         $('#menu').find('a').removeClass("currentlySelected")
 
