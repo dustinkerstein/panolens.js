@@ -928,6 +928,7 @@
               setPlayTourButton ();
               alignment.style.display = 'block';
             }
+            degrees.innerHTML = (Math.round(viewer.panorama.material.uniforms.offset.value.x * 360 * 10) / 10).toFixed(0) + '°';
             bar.classList.add ('hide');
             credit.style.display = 'block';
             creditText.innerHTML = "Credit: PHILIPPE A. COLLIN + CLÉMENT LÉOTARD";
@@ -1198,7 +1199,7 @@
 
       var bamHidden = false;
       function updateCallback () {
-
+        console.log(viewer.panorama.material.uniforms.offset.value.x)
         if (viewer.camera.getObjectByName('spinner') && spinner) {
             var distanceToPlane = Math.abs(spinner.mesh.position.z);
             var scale = (Math.tan (THREE.Math.degToRad(viewer.camera.fov * 0.5)) * distanceToPlane * 2.0) / 1000; 
@@ -1206,7 +1207,7 @@
             spinner.animate();
         }
 
-        if (viewer.panorama == panomoment5) {
+        if (viewer.panorama == panomoment5 && (viewer.panorama.status == "panomoments.ready" || viewer.panorama.status == "panomoments.completed")) {
           var currentYaw = THREE.Math.radToDeg(viewer.camera.rotation.y) + 180;
           if (!bamHidden && currentYaw <= 35 && currentYaw >= 20) {
               bam_type( paragraphs.bam, stopTypedAndCancelDelayExecute);
