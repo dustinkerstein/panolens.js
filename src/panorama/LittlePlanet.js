@@ -9,19 +9,15 @@ import * as THREE from 'three';
  * @constructor
  * @param {string} type 		- Type of little planet basic class
  * @param {string} source 		- URL for the image source
- * @param {number} [size=10000] - Size of plane geometry
- * @param {number} [ratio=0.5]  - Ratio of plane geometry's height against width
  */
-function LittlePlanet ( type = 'image', source, size = 10000, ratio = 0.5 ) {
+function LittlePlanet ( type = 'image', source ) {
 
     if ( type === 'image' ) {
 
-        ImagePanorama.call( this, source, this.createGeometry( size, ratio ), this.createMaterial( size ) );
+        ImagePanorama.call( this, source );
 
     }
 
-    this.size = size;
-    this.ratio = ratio;
     this.EPS = 0.000001;
     this.frameId = null;
 
@@ -35,6 +31,8 @@ function LittlePlanet ( type = 'image', source, size = 10000, ratio = 0.5 ) {
 
     this.vectorX = new THREE.Vector3( 1, 0, 0 );
     this.vectorY = new THREE.Vector3( 0, 1, 0 );
+
+    this.type = 'little_planet';
 
     this.addEventListener( 'window-resize', this.onWindowResize );
 
@@ -68,26 +66,38 @@ LittlePlanet.prototype = Object.assign( Object.create( ImagePanorama.prototype )
 
     },
 
-    createGeometry: function ( size, ratio ) {
+    /**
+     * Create a skybox geometry
+     * @memberOf LittlePlanet
+     * @instance
+     */
+    createGeometry: function ( edgeLength ) {
 
-        return new THREE.PlaneBufferGeometry( size, size * ratio );
+        const ratio = 0.5;
+        return new THREE.PlaneBufferGeometry( edgeLength, ratio * edgeLength );
 
     },
 
-    createMaterial: function ( size ) {
+    /**
+     * Create material
+     * @memberOf LittlePlanet
+     * @instance
+     */
+    createMaterial: function ( size = this.edgeLength ) {
 
-        const shader = Object.assign( {}, StereographicShader ), uniforms = shader.uniforms;
+        const { fragmentShader, vertexShader, uniforms: _uniforms } = StereographicShader;
+        const uniforms = THREE.UniformsUtils.clone( _uniforms );
 
         uniforms.zoom.value = size;
         uniforms.opacity.value = 0.0;
 
         return new THREE.ShaderMaterial( {
 
-            uniforms: uniforms,
-            vertexShader: shader.vertexShader,
-            fragmentShader: shader.fragmentShader,
-            side: THREE.BackSide,
-            transparent: true
+            vertexShader,
+            fragmentShader,
+            uniforms,
+            transparent: true,
+            opacity: 0
 
         } );
 		
@@ -270,6 +280,18 @@ LittlePlanet.prototype = Object.assign( Object.create( ImagePanorama.prototype )
         this.quatCur.set( 0, 0, 0, 1 );
         this.quatSlerp.set( 0, 0, 0, 1 );
         this.onUpdateCallback();
+
+    },
+
+    updateTexture: function ( texture ) {
+
+        this.material.uniforms.tDiffuse.value = texture;
+
+    },
+
+    getTexture: function () {
+
+        return this.material.uniforms.tDiffuse.value;
 
     },
 

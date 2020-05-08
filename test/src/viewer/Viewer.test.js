@@ -20,6 +20,9 @@ import { GoogleStreetviewPanorama } from '../../../src/panorama/GoogleStreetview
 import { LittlePlanet } from '../../../src/panorama/LittlePlanet';
 import { ImageLittlePlanet } from '../../../src/panorama/ImageLittlePlanet';
 import { VideoPanorama } from '../../../src/panorama/VideoPanorama';
+import { StereoImagePanorama } from '../../../src/panorama/StereoImagePanorama';
+import { StereoVideoPanorama } from '../../../src/panorama/StereoVideoPanorama';
+import { Stereo } from '../../../src/auxiliary/Stereo';
 
 const localImageFolder = '../../../example/asset/textures/equirectangular';
 const cabinImageURL = join( __dirname, localImageFolder, 'cabin.jpg' );
@@ -121,15 +124,14 @@ test.cb('Panorama Enter and Leave', t => {
     const advance = () => {
         viewer.setPanorama( panorama2 );
     };
-
+    panorama1.addEventListener( 'loaded', () => setTimeout( advance, 1000 ) );
     panorama1.addEventListener( 'enter', pass ); // yes
     panorama1.addEventListener( 'leave', pass ); // yes
-    panorama1.addEventListener( 'leave-complete', () => t.end() )
     panorama2.addEventListener( 'enter', pass ); // yes
     panorama2.addEventListener( 'leave', pass ); // no
+    panorama2.addEventListener( 'enter', () => setTimeout( t.end, 1000 ) ); // yes
+    
     viewer.add( panorama1, panorama2 );
-
-    setTimeout( advance, 2000 );
 
 });
 
@@ -366,4 +368,34 @@ test('Append Custom Control Widget', t => {
     t.true( viewer.widget.barElement.contains( item1 ) );
     viewer.widget.barElement.removeChild( item2 );
     t.false( viewer.widget.barElement.contains( item2 ) );
+});
+
+test.cb('Stereo Image Panorama', t => {
+
+    const renderer = new THREE.WebGLRenderer();
+    const viewer = new Viewer( { renderer } );
+    const stereo = new Stereo( 0 );
+    const stereoImage = new StereoImagePanorama( cabinImageURL, stereo );
+    stereoImage.addEventListener( 'loaded', () => {
+        renderer.autoClear = true;
+        viewer.render();
+        t.end();
+    });
+    viewer.add( stereoImage );
+    viewer.enableEffect( MODES.STEREO );
+
+});
+
+test.cb('Stereo Video Panorama', t => {
+
+    const viewer = new Viewer();
+    const stereo = new Stereo( 0 );
+    const stereoVideo = new StereoVideoPanorama( '../../../example/asset/textures/video/1941-battle-low.mp4', stereo );
+    stereoVideo.addEventListener( 'loaded', () => {
+        viewer.render();
+        t.end();
+    });
+    viewer.add( stereoVideo );
+    viewer.enableEffect( MODES.STEREO );
+
 });

@@ -2,17 +2,18 @@ import { Infospot } from '../infospot/Infospot';
 import { DataImage } from '../DataImage';
 import * as THREE from 'three';
 import TWEEN from '@tweenjs/tween.js';
+import { EquirectShader } from '../shaders/EquirectShader';
 
 
 /**
  * @classdesc Base Panorama
  * @constructor
- * @param {THREE.Geometry} geometry - The geometry for this panorama
- * @param {THREE.Material} material - The material for this panorama
  */
-function Panorama ( geometry, material ) {
+function Panorama () {
 
-    THREE.Mesh.call( this, geometry, material );
+    this.edgeLength = 10000;
+
+    THREE.Mesh.call( this, this.createGeometry( this.edgeLength ), this.createMaterial() );
 
     this.type = 'panorama';
 
@@ -23,31 +24,21 @@ function Panorama ( geometry, material ) {
     this.ImageQualitySuperHigh = 5;
 
     this.animationDuration = 1000;
-
     this.defaultInfospotSize = 350;
-
     this.container = undefined;
-
     this.loaded = false;
-
     this.linkedSpots = [];
-
     this.isInfospotVisible = false;
 	
     this.linkingImageURL = undefined;
     this.linkingImageScale = undefined;
 
-    this.material.side = THREE.BackSide;
-    this.material.opacity = 0;
-
-    this.scale.x *= -1;
     this.renderOrder = -1;
-
+    this.visible = false;
     this.active = false;
 
     this.infospotAnimation = new TWEEN.Tween( this ).to( {}, this.animationDuration / 2 );
 
-    this.addEventListener( 'load', this.fadeIn.bind( this ) );
     this.addEventListener( 'panolens-container', this.setContainer.bind( this ) );
     this.addEventListener( 'click', this.onClick.bind( this ) );
 
@@ -60,20 +51,58 @@ Panorama.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
     constructor: Panorama,
 
     /**
+     * Create a skybox geometry
+     * @memberOf Panorama
+     * @instance
+     */
+    createGeometry: function ( edgeLength ) {
+
+        return new THREE.BoxBufferGeometry( edgeLength, edgeLength, edgeLength );
+
+    },
+
+    /**
+     * Create equirectangular shader material
+     * @param {THREE.Vector2} [repeat=new THREE.Vector2( 1, 1 )] - Texture Repeat
+     * @param {THREE.Vector2} [offset=new THREE.Vector2( 0, 0 )] - Texture Offset
+     * @memberOf Panorama
+     * @instance
+     */
+    createMaterial: function ( repeat = new THREE.Vector2( 1, 1 ), offset = new THREE.Vector2( 0, 0 ) ) {
+
+        const { fragmentShader, vertexShader } = EquirectShader;
+        const uniforms = THREE.UniformsUtils.clone( EquirectShader.uniforms );
+        
+        uniforms.repeat.value.copy( repeat );
+        uniforms.offset.value.copy( offset );
+        uniforms.opacity.value = 0.0;
+
+        const material = new THREE.ShaderMaterial( {
+
+            fragmentShader,
+            vertexShader,
+            uniforms,
+            side: THREE.BackSide,
+            transparent: true,
+            opacity: 0
+    
+        } );
+
+        return material;
+
+    },
+
+    /**
      * Adding an object
-     * To counter the scale.x = -1, it will automatically add an 
-     * empty object with inverted scale on x
      * @memberOf Panorama
      * @instance
      * @param {THREE.Object3D} object - The object to be added
      */
     add: function ( object ) {
 
-        let invertedObject;
-
         if ( arguments.length > 1 ) {
 
-            for ( var i = 0; i < arguments.length; i ++ ) {
+            for ( let i = 0; i < arguments.length; i ++ ) {
 
                 this.add( arguments[ i ] );
 
@@ -86,46 +115,54 @@ Panorama.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
         // In case of infospots
         if ( object instanceof Infospot ) {
 
-            invertedObject = object;
+            const { container } = this;
 
-            if ( object.dispatchEvent ) {
-
-                const { container } = this;
-
-                if ( container ) { object.dispatchEvent( { type: 'panolens-container', container } ); }
-				
-                object.dispatchEvent( { type: 'panolens-infospot-focus', method: function ( vector, duration, easing ) {
-
-                    /**
-                     * Infospot focus handler event
-                     * @type {object}
-                     * @event Panorama#panolens-viewer-handler
-                     * @property {string} method - Viewer function name
-                     * @property {*} data - The argument to be passed into the method
-                     */
-                    this.dispatchEvent( { type: 'panolens-viewer-handler', method: 'tweenControlCenter', data: [ vector, duration, easing ] } );
-
-
-                }.bind( this ) } );
+            if ( container ) { 
+                
+                object.dispatchEvent( { type: 'panolens-container', container } ); 
+            
             }
+            
+            object.dispatchEvent( { type: 'panolens-infospot-focus', method: function ( vector, duration, easing ) {
 
-        } else {
+                /**
+                 * Infospot focus handler event
+                 * @type {object}
+                 * @event Panorama#panolens-viewer-handler
+                 * @property {string} method - Viewer function name
+                 * @property {*} data - The argument to be passed into the method
+                 */
+                this.dispatchEvent( { type: 'panolens-viewer-handler', method: 'tweenControlCenter', data: [ vector, duration, easing ] } );
 
-            // Counter scale.x = -1 effect
-            invertedObject = new THREE.Object3D();
-            invertedObject.scale.x = -1;
-            invertedObject.scalePlaceHolder = true;
-            invertedObject.add( object );
+
+            }.bind( this ) } );
 
         }
 
-        THREE.Object3D.prototype.add.call( this, invertedObject );
+        THREE.Object3D.prototype.add.call( this, object );
 
     },
 
-    load: function () {
+    getTexture: function(){
 
-        this.onLoad();
+        return this.material.uniforms.tEquirect.value;
+
+    },
+
+    /**
+     * Load Panorama
+     * @param {boolean} immediate load immediately
+     */
+    load: function ( immediate = true ) {
+
+        /**
+         * Start loading panorama event
+         * @type {object}
+         * @event Panorama#load-start
+         */
+        this.dispatchEvent( { type: 'load-start' } );
+
+        if (immediate) this.onLoad();
 		
     },
 
@@ -204,7 +241,7 @@ Panorama.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
      * This will be called when panorama is loaded
      * @memberOf Panorama
      * @instance
-     * @fires Panorama#load
+     * @fires Panorama#loaded
      */
     onLoad: function () {
 
@@ -213,9 +250,16 @@ Panorama.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
         /**
          * Load panorama event
          * @type {object}
-         * @event Panorama#load
+         * @event Panorama#loaded
          */
-        this.dispatchEvent( { type: 'load' } );
+        this.dispatchEvent( { type: 'loaded' } );
+
+        /**
+         * Panorama is ready to go
+         * @event Panorama#ready
+         * @type {object} 
+         */
+        this.dispatchEvent( { type: 'ready' } );
 
     },
 
@@ -298,8 +342,7 @@ Panorama.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
      */
     updateTexture: function ( texture ) {
 
-        this.material.map = texture;
-        this.material.needsUpdate = true;
+        this.material.uniforms.tEquirect.value = texture;
 
     },
 
@@ -572,6 +615,13 @@ Panorama.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
 
         const duration = this.animationDuration;
 
+        /**
+         * Enter panorama event
+         * @event Panorama#enter
+         * @type {object} 
+         */
+        this.dispatchEvent( { type: 'enter' } );
+
         this.leaveTransition.stop();
         this.enterTransition
             .to( {}, duration )
@@ -586,7 +636,12 @@ Panorama.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
 				
                 if ( this.loaded ) {
 
-                    this.fadeIn( duration );
+                    /**
+                     * Panorama is ready to go
+                     * @event Panorama#ready
+                     * @type {object} 
+                     */
+                    this.dispatchEvent( { type: 'ready' } );
 
                 } else {
 
@@ -596,13 +651,6 @@ Panorama.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
 				
             }.bind( this ) )
             .start();
-
-        /**
-         * Enter panorama event
-         * @event Panorama#enter
-         * @type {object} 
-         */
-        this.dispatchEvent( { type: 'enter' } );
 
         this.children.forEach( child => {
 
@@ -649,12 +697,10 @@ Panorama.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
          */
         this.dispatchEvent( { type: 'leave' } );
 
-        this.children.forEach( child => {
+        // dispatch panorama-leave to descendents
+        this.traverse( child => child.dispatchEvent( { type: 'panorama-leave' } ));
 
-            child.dispatchEvent( { type: 'panorama-leave' } );
-
-        } );
-
+        // mark active
         this.active = false;
 
     },
@@ -665,6 +711,10 @@ Panorama.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
      * @instance
      */
     dispose: function () {
+
+        const { material } = this;
+
+        if ( material && material.uniforms && material.uniforms.tEquirect ) material.uniforms.tEquirect.value.dispose();
 
         this.infospotAnimation.stop();
         this.fadeInAnimation.stop();
@@ -686,7 +736,7 @@ Panorama.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
 
             const { geometry, material } = object;
 
-            for ( var i = object.children.length - 1; i >= 0; i-- ) {
+            for ( let i = object.children.length - 1; i >= 0; i-- ) {
 
                 recursiveDispose( object.children[i] );
                 object.remove( object.children[i] );

@@ -1,6 +1,6 @@
-import { Cache, Texture, RGBFormat, RGBAFormat, CubeTexture, EventDispatcher, VideoTexture, LinearFilter, SpriteMaterial, Sprite, Color, CanvasTexture, DoubleSide, Vector3, Mesh, BackSide, Object3D, SphereBufferGeometry, MeshBasicMaterial, BufferGeometry, BufferAttribute, ShaderLib, BoxBufferGeometry, ShaderMaterial, Matrix4, Vector2, Quaternion, PlaneBufferGeometry, Math as Math$1, MOUSE, PerspectiveCamera, OrthographicCamera, Euler, Scene, StereoCamera, WebGLRenderTarget, NearestFilter, WebGLRenderer, Raycaster, Frustum, REVISION as REVISION$1 } from 'three';
+import { Cache, Texture, RGBFormat, RGBAFormat, CubeTexture, EventDispatcher, VideoTexture, LinearFilter, Vector2, SpriteMaterial, Sprite, Color, CanvasTexture, DoubleSide, Vector3, Mesh, BoxBufferGeometry, UniformsUtils, ShaderMaterial, BackSide, Object3D, BufferGeometry, BufferAttribute, MeshBasicMaterial, ShaderLib, Matrix4, Quaternion, PlaneBufferGeometry, Math as Math$1, Spherical, MOUSE, PerspectiveCamera, OrthographicCamera, Euler, Scene, StereoCamera, WebGLRenderTarget, NearestFilter, Raycaster, Frustum, WebGLRenderer, REVISION as REVISION$1 } from 'three';
 
-const version="0.11.0";const dependencies={three:"^0.105.2"};
+const version="0.11.0";const devDependencies={"@rollup/plugin-commonjs":"^11.0.2","@rollup/plugin-inject":"^4.0.1","@rollup/plugin-json":"^4.0.2","@rollup/plugin-node-resolve":"^7.1.1","@tweenjs/tween.js":"^18.5.0",ava:"^3.5.0","babel-eslint":"^10.1.0","browser-env":"^3.3.0",concurrently:"^5.1.0",coveralls:"^3.0.11",docdash:"^1.2.0",eslint:"^6.8.0",esm:"^3.2.25","google-closure-compiler":"^20200315.0.0","http-server":"^0.12.3",jsdoc:"^3.6.3","local-web-server":"^3.0.7",nyc:"^14.1.1",rollup:"^2.3.2",three:"^0.105.2",xmlhttprequest:"^1.8.0"};
 
 /**
  * REVISION
@@ -24,7 +24,7 @@ const VERSION = version;
  * @example PANOLENS.THREE_REVISION
  * @type {string} threejs revision
  */
-const THREE_REVISION = dependencies.three.split( '.' )[ 1 ];
+const THREE_REVISION = devDependencies.three.split( '.' )[ 1 ];
 
 /**
  * THREEJS VERSION
@@ -32,7 +32,7 @@ const THREE_REVISION = dependencies.three.split( '.' )[ 1 ];
  * @example PANOLENS.THREE_VERSION
  * @type {string} threejs version
  */
-const THREE_VERSION = dependencies.three.replace( /[^0-9.]/g, '' );
+const THREE_VERSION = devDependencies.three.replace( /[^0-9.]/g, '' );
 
 /**
  * CONTROLS
@@ -53,6 +53,15 @@ const CONTROLS = { ORBIT: 0, DEVICEORIENTATION: 1 };
  * @property {number} STEREO 3
  */
 const MODES = { UNKNOWN: 0, NORMAL: 1, CARDBOARD: 2, STEREO: 3 };
+
+/**
+ * STEREOFORMAT
+ * @module STEREOFORMAT
+ * @example PANOLENS.STEREOFORMAT.TAB
+ * @property {number} TAB 0
+ * @property {number} SBS 1
+ */
+const STEREOFORMAT = { TAB: 0, SBS: 1 };
 
 /**
  * Data URI Images
@@ -215,7 +224,7 @@ const TextureLoader = {
      */
     load: function ( url, onLoad = () => {}, onProgress, onError ) {
 
-        var texture = new Texture(); 
+        const texture = new Texture(); 
 
         ImageLoader.load( url, function ( image ) {
 
@@ -255,7 +264,7 @@ const CubeTextureLoader = {
      */
     load: function ( urls, onLoad = () => {}, onProgress = () => {}, onError ) {
 
-	   var texture, loaded, progress, all, loadings;
+	   let texture, loaded, progress, all, loadings;
 
 	   texture = new CubeTexture( [] );
 
@@ -287,7 +296,7 @@ const CubeTextureLoader = {
 			   all.total = 0;
 			   loadings = 0;
 
-			   for ( var i in progress ) {
+			   for ( let i in progress ) {
 
 				   loadings++;
 				   all.loaded += progress[ i ].loaded;
@@ -659,6 +668,79 @@ Media.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
 } );
 
 /**
+ * @classdesc Stereo Mixin - format based on {@link https://opticalflow.wordpress.com/2010/09/19/side-by-side-versus-top-and-bottom-3d-formats/} will be determined by image width:height ratio (TAB is 1:1, SBS is 4:1)
+ * @constructor
+ * @param {number} [eyeSep=0.064] - eye separation distance
+ */
+function Stereo ( eyeSep = 0.064 ){
+
+    this.format = null;
+    this.eyeSep = eyeSep;
+
+    this.loffset = new Vector2();
+    this.roffset = new Vector2();
+
+}
+
+Object.assign( Stereo.prototype, {
+
+    constructor: Stereo,
+
+    /**
+     * Update unifroms by stereo format
+     * @param {integer} format - { @see STEREOFORMAT }
+     * @param {object} uniforms
+     */
+    updateUniformByFormat: function( format, uniforms ) {
+
+        this.format = format;
+
+        const repeat = uniforms.repeat.value;
+        const offset = uniforms.offset.value;
+        const loffset = this.loffset;
+        const roffset = this.roffset;
+
+        switch ( format ) {
+
+        case STEREOFORMAT.TAB:
+            repeat.set( 1.0, 0.5 );
+            offset.set( 0.0, 0.5 );
+            loffset.set( 0.0, 0.5 );
+            roffset.set( 0.0, 0.0 );
+            break;
+
+        case STEREOFORMAT.SBS:
+            repeat.set( 0.5, 1.0 );
+            offset.set( 0.0, 0.0 );
+            loffset.set( 0.0, 0.0 );
+            roffset.set( 0.5, 0.0 );
+            break;
+
+        }
+
+    },
+
+    /**
+     * Update Texture for Stereo Left Eye
+     */
+    updateTextureToLeft: function( offset ) {
+
+        offset.copy( this.loffset );
+
+    },
+
+    /**
+     * Update Texture for Stereo Right Eye
+     */
+    updateTextureToRight: function( offset ) {
+
+        offset.copy( this.roffset );
+
+    }
+
+} );
+
+/**
  * @classdesc Reticle 3D Sprite
  * @constructor
  * @param {THREE.Color} [color=0xffffff] - Color of the reticle sprite
@@ -967,11 +1049,8 @@ Reticle.prototype = Object.assign( Object.create( Sprite.prototype ), {
 
 } );
 
-function createCommonjsModule(fn, module) {
-	return module = { exports: {} }, fn(module, module.exports), module.exports;
-}
+var version$1 = '18.5.0';
 
-var Tween = createCommonjsModule(function (module, exports) {
 /**
  * Tween.js - Licensed under the MIT license
  * https://github.com/tweenjs/tween.js
@@ -1026,10 +1105,11 @@ _Group.prototype = {
 
 		time = time !== undefined ? time : TWEEN.now();
 
-		// Tweens are updated in "batches". If you add a new tween during an update, then the
-		// new tween will be updated in the next batch.
-		// If you remove a tween during an update, it may or may not be updated. However,
-		// if the removed tween was added during the current batch, then it will not be updated.
+		// Tweens are updated in "batches". If you add a new tween during an
+		// update, then the new tween will be updated in the next batch.
+		// If you remove a tween during an update, it may or may not be updated.
+		// However, if the removed tween was added during the current batch,
+		// then it will not be updated.
 		while (tweenIds.length > 0) {
 			this._tweensAddedDuringUpdate = {};
 
@@ -1094,6 +1174,8 @@ else {
 
 
 TWEEN.Tween = function (object, group) {
+	this._isPaused = false;
+	this._pauseStart = null;
 	this._object = object;
 	this._valuesStart = {};
 	this._valuesEnd = {};
@@ -1129,6 +1211,10 @@ TWEEN.Tween.prototype = {
 		return this._isPlaying;
 	},
 
+	isPaused: function () {
+		return this._isPaused;
+	},
+
 	to: function (properties, duration) {
 
 		this._valuesEnd = Object.create(properties);
@@ -1151,6 +1237,8 @@ TWEEN.Tween.prototype = {
 		this._group.add(this);
 
 		this._isPlaying = true;
+
+		this._isPaused = false;
 
 		this._onStartCallbackFired = false;
 
@@ -1177,8 +1265,10 @@ TWEEN.Tween.prototype = {
 				continue;
 			}
 
-			// Save the starting value.
-			this._valuesStart[property] = this._object[property];
+			// Save the starting value, but only once.
+			if (typeof(this._valuesStart[property]) === 'undefined') {
+				this._valuesStart[property] = this._object[property];
+			}
 
 			if ((this._valuesStart[property] instanceof Array) === false) {
 				this._valuesStart[property] *= 1.0; // Ensures we're using numbers, not strings
@@ -1199,7 +1289,10 @@ TWEEN.Tween.prototype = {
 		}
 
 		this._group.remove(this);
+
 		this._isPlaying = false;
+
+		this._isPaused = false;
 
 		if (this._onStopCallback !== null) {
 			this._onStopCallback(this._object);
@@ -1213,6 +1306,41 @@ TWEEN.Tween.prototype = {
 	end: function () {
 
 		this.update(Infinity);
+		return this;
+
+	},
+
+	pause: function(time) {
+
+		if (this._isPaused || !this._isPlaying) {
+			return this;
+		}
+
+		this._isPaused = true;
+
+		this._pauseStart = time === undefined ? TWEEN.now() : time;
+
+		this._group.remove(this);
+
+		return this;
+
+	},
+
+	resume: function(time) {
+
+		if (!this._isPaused || !this._isPlaying) {
+			return this;
+		}
+
+		this._isPaused = false;
+
+		this._startTime += (time === undefined ? TWEEN.now() : time)
+			- this._pauseStart;
+
+		this._pauseStart = 0;
+
+		this._group.add(this);
+
 		return this;
 
 	},
@@ -1882,19 +2010,7 @@ TWEEN.Interpolation = {
 	}
 
 };
-
-// UMD (Universal Module Definition)
-(function (root) {
-
-	{
-
-		// Node.js
-		module.exports = TWEEN;
-
-	}
-
-})();
-});
+TWEEN.version = version$1;
 
 /**
  * @classdesc Information spot attached to panorama
@@ -1943,8 +2059,8 @@ function Infospot ( scale = 300, imageSrc, animated ) {
     this.material.transparent = true;
     this.material.opacity = 0;
 
-    this.scaleUpAnimation = new Tween.Tween();
-    this.scaleDownAnimation = new Tween.Tween();
+    this.scaleUpAnimation = new TWEEN.Tween();
+    this.scaleDownAnimation = new TWEEN.Tween();
 
 
     const postLoad = function ( texture ) {
@@ -1961,13 +2077,13 @@ function Infospot ( scale = 300, imageSrc, animated ) {
 
         textureScale.copy( this.scale );
 
-        this.scaleUpAnimation = new Tween.Tween( this.scale )
+        this.scaleUpAnimation = new TWEEN.Tween( this.scale )
             .to( { x: textureScale.x * scaleFactor, y: textureScale.y * scaleFactor }, duration )
-            .easing( Tween.Easing.Elastic.Out );
+            .easing( TWEEN.Easing.Elastic.Out );
 
-        this.scaleDownAnimation = new Tween.Tween( this.scale )
+        this.scaleDownAnimation = new TWEEN.Tween( this.scale )
             .to( { x: textureScale.x, y: textureScale.y }, duration )
-            .easing( Tween.Easing.Elastic.Out );
+            .easing( TWEEN.Easing.Elastic.Out );
 
         this.material.map = texture;
         this.material.needsUpdate = true;
@@ -1975,15 +2091,15 @@ function Infospot ( scale = 300, imageSrc, animated ) {
     }.bind( this );
 
     // Add show and hide animations
-    this.showAnimation = new Tween.Tween( this.material )
+    this.showAnimation = new TWEEN.Tween( this.material )
         .to( { opacity: 1 }, duration )
         .onStart( this.enableRaycast.bind( this, true ) )
-        .easing( Tween.Easing.Quartic.Out );
+        .easing( TWEEN.Easing.Quartic.Out );
 
-    this.hideAnimation = new Tween.Tween( this.material )
+    this.hideAnimation = new TWEEN.Tween( this.material )
         .to( { opacity: 0 }, duration )
         .onStart( this.enableRaycast.bind( this, false ) )
-        .easing( Tween.Easing.Quartic.Out );
+        .easing( TWEEN.Easing.Quartic.Out );
 
     // Attach event listeners
     this.addEventListener( 'click', this.onClick );
@@ -1992,6 +2108,7 @@ function Infospot ( scale = 300, imageSrc, animated ) {
     this.addEventListener( 'hoverleave', this.onHoverEnd );
     this.addEventListener( 'panolens-dual-eye-effect', this.onDualEyeEffect );
     this.addEventListener( 'panolens-container', this.setContainer.bind( this ) );
+    this.addEventListener( 'panorama-leave', this.onDismiss );
     this.addEventListener( 'dismiss', this.onDismiss );
     this.addEventListener( 'panolens-infospot-focus', this.setFocusMethod );
 
@@ -2622,11 +2739,10 @@ Widget.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
             return; 
         }
 
-        var scope = this, bar, styleTranslate, styleOpacity, gradientStyle;
+        const scope = this;
+        const gradientStyle = 'linear-gradient(bottom, rgba(0,0,0,0.2), rgba(0,0,0,0))';
 
-        gradientStyle = 'linear-gradient(bottom, rgba(0,0,0,0.2), rgba(0,0,0,0))';
-
-        bar = document.createElement( 'div' );
+        const bar = document.createElement( 'div' );
         bar.style.width = '100%';
         bar.style.height = '44px';
         bar.style.float = 'left';
@@ -2641,19 +2757,19 @@ Widget.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
         bar.isHidden = false;
         bar.toggle = function () {
             bar.isHidden = !bar.isHidden;
-            styleTranslate = bar.isHidden ? 'translateY(0)' : 'translateY(-100%)';
-            styleOpacity = bar.isHidden ? 0 : 1;
+            const styleTranslate = bar.isHidden ? 'translateY(0)' : 'translateY(-100%)';
+            const styleOpacity = bar.isHidden ? 0 : 1;
             bar.style.transform = bar.style.webkitTransform = bar.style.msTransform = styleTranslate;
             bar.style.opacity = styleOpacity;
         };
 
         // Menu
-        var menu = this.createDefaultMenu();
+        const menu = this.createDefaultMenu();
         this.mainMenu = this.createMainMenu( menu );
         bar.appendChild( this.mainMenu );
 
         // Mask
-        var mask = this.createMask();
+        const mask = this.createMask();
         this.mask = mask;
         this.container.appendChild( mask );
 
@@ -2716,9 +2832,8 @@ Widget.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
      */
     createDefaultMenu: function () {
 
-        var scope = this, handler;
-
-        handler = function ( method, data ) {
+        const scope = this;
+        const handler = function ( method, data ) {
 
             return function () {
 
@@ -3490,9 +3605,9 @@ Widget.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
             window.requestAnimationFrame( onNextTick );
 
         }
-        for ( var i = 0; i < menus.length; i++ ) {
+        for ( let i = 0; i < menus.length; i++ ) {
 
-            var item = menu.addItem( menus[ i ].title );
+            const item = menu.addItem( menus[ i ].title );
 
             item.style.paddingLeft = '20px';
 
@@ -3501,7 +3616,7 @@ Widget.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
 
             if ( menus[ i ].subMenu && menus[ i ].subMenu.length > 0 ) {
 
-                var title = menus[ i ].subMenu[ 0 ].title;
+                const title = menus[ i ].subMenu[ 0 ].title;
 
                 item.addSelection( title )
                     .addSubMenu( menus[ i ].title, menus[ i ].subMenu );
@@ -3823,14 +3938,72 @@ Widget.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
 } );
 
 /**
+ * Equirectangular shader
+ * based on three.js equirect shader
+ * @author pchen66
+ */
+
+/**
+ * @description Equirectangular Shader
+ * @module EquirectShader
+ * @property {object} uniforms
+ * @property {THREE.Texture} uniforms.tEquirect diffuse map
+ * @property {number} uniforms.opacity image opacity
+ * @property {string} vertexShader vertex shader
+ * @property {string} fragmentShader fragment shader
+ */
+const EquirectShader = {
+
+    uniforms: {
+
+        'tEquirect': { value: new Texture() },
+        'repeat': { value: new Vector2( 1.0, 1.0 ) },
+        'offset': { value: new Vector2( 0.0, 0.0 ) },
+        'opacity': { value: 1.0 }
+
+    },
+
+    vertexShader: `
+        varying vec3 vWorldDirection;
+        #include <common>
+        void main() {
+            vWorldDirection = transformDirection( position, modelMatrix );
+            #include <begin_vertex>
+            #include <project_vertex>
+        }
+    `,
+
+    fragmentShader: `
+        uniform sampler2D tEquirect;
+        uniform vec2 repeat;
+        uniform vec2 offset;
+        uniform float opacity;
+        varying vec3 vWorldDirection;
+        #include <common>
+        void main() {
+            vec3 direction = normalize( vWorldDirection );
+            vec2 sampleUV;
+            sampleUV.y = asin( clamp( direction.y, - 1.0, 1.0 ) ) * RECIPROCAL_PI + 0.5;
+            sampleUV.x = atan( direction.z, direction.x ) * RECIPROCAL_PI2 + 0.5;
+            sampleUV *= repeat;
+            sampleUV += offset;
+            sampleUV.x = fract(sampleUV.x);
+            sampleUV.y = fract(sampleUV.y);
+            gl_FragColor = vec4(texture2D( tEquirect, sampleUV ).rgb, opacity);
+        }
+    `
+
+};
+
+/**
  * @classdesc Base Panorama
  * @constructor
- * @param {THREE.Geometry} geometry - The geometry for this panorama
- * @param {THREE.Material} material - The material for this panorama
  */
-function Panorama ( geometry, material ) {
+function Panorama () {
 
-    Mesh.call( this, geometry, material );
+    this.edgeLength = 10000;
+
+    Mesh.call( this, this.createGeometry( this.edgeLength ), this.createMaterial() );
 
     this.type = 'panorama';
 
@@ -3841,31 +4014,21 @@ function Panorama ( geometry, material ) {
     this.ImageQualitySuperHigh = 5;
 
     this.animationDuration = 1000;
-
     this.defaultInfospotSize = 350;
-
     this.container = undefined;
-
     this.loaded = false;
-
     this.linkedSpots = [];
-
     this.isInfospotVisible = false;
 	
     this.linkingImageURL = undefined;
     this.linkingImageScale = undefined;
 
-    this.material.side = BackSide;
-    this.material.opacity = 0;
-
-    this.scale.x *= -1;
     this.renderOrder = -1;
-
+    this.visible = false;
     this.active = false;
 
-    this.infospotAnimation = new Tween.Tween( this ).to( {}, this.animationDuration / 2 );
+    this.infospotAnimation = new TWEEN.Tween( this ).to( {}, this.animationDuration / 2 );
 
-    this.addEventListener( 'load', this.fadeIn.bind( this ) );
     this.addEventListener( 'panolens-container', this.setContainer.bind( this ) );
     this.addEventListener( 'click', this.onClick.bind( this ) );
 
@@ -3878,20 +4041,58 @@ Panorama.prototype = Object.assign( Object.create( Mesh.prototype ), {
     constructor: Panorama,
 
     /**
+     * Create a skybox geometry
+     * @memberOf Panorama
+     * @instance
+     */
+    createGeometry: function ( edgeLength ) {
+
+        return new BoxBufferGeometry( edgeLength, edgeLength, edgeLength );
+
+    },
+
+    /**
+     * Create equirectangular shader material
+     * @param {THREE.Vector2} [repeat=new THREE.Vector2( 1, 1 )] - Texture Repeat
+     * @param {THREE.Vector2} [offset=new THREE.Vector2( 0, 0 )] - Texture Offset
+     * @memberOf Panorama
+     * @instance
+     */
+    createMaterial: function ( repeat = new Vector2( 1, 1 ), offset = new Vector2( 0, 0 ) ) {
+
+        const { fragmentShader, vertexShader } = EquirectShader;
+        const uniforms = UniformsUtils.clone( EquirectShader.uniforms );
+        
+        uniforms.repeat.value.copy( repeat );
+        uniforms.offset.value.copy( offset );
+        uniforms.opacity.value = 0.0;
+
+        const material = new ShaderMaterial( {
+
+            fragmentShader,
+            vertexShader,
+            uniforms,
+            side: BackSide,
+            transparent: true,
+            opacity: 0
+    
+        } );
+
+        return material;
+
+    },
+
+    /**
      * Adding an object
-     * To counter the scale.x = -1, it will automatically add an 
-     * empty object with inverted scale on x
      * @memberOf Panorama
      * @instance
      * @param {THREE.Object3D} object - The object to be added
      */
     add: function ( object ) {
 
-        let invertedObject;
-
         if ( arguments.length > 1 ) {
 
-            for ( var i = 0; i < arguments.length; i ++ ) {
+            for ( let i = 0; i < arguments.length; i ++ ) {
 
                 this.add( arguments[ i ] );
 
@@ -3904,46 +4105,54 @@ Panorama.prototype = Object.assign( Object.create( Mesh.prototype ), {
         // In case of infospots
         if ( object instanceof Infospot ) {
 
-            invertedObject = object;
+            const { container } = this;
 
-            if ( object.dispatchEvent ) {
-
-                const { container } = this;
-
-                if ( container ) { object.dispatchEvent( { type: 'panolens-container', container } ); }
-				
-                object.dispatchEvent( { type: 'panolens-infospot-focus', method: function ( vector, duration, easing ) {
-
-                    /**
-                     * Infospot focus handler event
-                     * @type {object}
-                     * @event Panorama#panolens-viewer-handler
-                     * @property {string} method - Viewer function name
-                     * @property {*} data - The argument to be passed into the method
-                     */
-                    this.dispatchEvent( { type: 'panolens-viewer-handler', method: 'tweenControlCenter', data: [ vector, duration, easing ] } );
-
-
-                }.bind( this ) } );
+            if ( container ) { 
+                
+                object.dispatchEvent( { type: 'panolens-container', container } ); 
+            
             }
+            
+            object.dispatchEvent( { type: 'panolens-infospot-focus', method: function ( vector, duration, easing ) {
 
-        } else {
+                /**
+                 * Infospot focus handler event
+                 * @type {object}
+                 * @event Panorama#panolens-viewer-handler
+                 * @property {string} method - Viewer function name
+                 * @property {*} data - The argument to be passed into the method
+                 */
+                this.dispatchEvent( { type: 'panolens-viewer-handler', method: 'tweenControlCenter', data: [ vector, duration, easing ] } );
 
-            // Counter scale.x = -1 effect
-            invertedObject = new Object3D();
-            invertedObject.scale.x = -1;
-            invertedObject.scalePlaceHolder = true;
-            invertedObject.add( object );
+
+            }.bind( this ) } );
 
         }
 
-        Object3D.prototype.add.call( this, invertedObject );
+        Object3D.prototype.add.call( this, object );
 
     },
 
-    load: function () {
+    getTexture: function(){
 
-        this.onLoad();
+        return this.material.uniforms.tEquirect.value;
+
+    },
+
+    /**
+     * Load Panorama
+     * @param {boolean} immediate load immediately
+     */
+    load: function ( immediate = true ) {
+
+        /**
+         * Start loading panorama event
+         * @type {object}
+         * @event Panorama#load-start
+         */
+        this.dispatchEvent( { type: 'load-start' } );
+
+        if (immediate) this.onLoad();
 		
     },
 
@@ -4022,7 +4231,7 @@ Panorama.prototype = Object.assign( Object.create( Mesh.prototype ), {
      * This will be called when panorama is loaded
      * @memberOf Panorama
      * @instance
-     * @fires Panorama#load
+     * @fires Panorama#loaded
      */
     onLoad: function () {
 
@@ -4031,9 +4240,16 @@ Panorama.prototype = Object.assign( Object.create( Mesh.prototype ), {
         /**
          * Load panorama event
          * @type {object}
-         * @event Panorama#load
+         * @event Panorama#loaded
          */
-        this.dispatchEvent( { type: 'load' } );
+        this.dispatchEvent( { type: 'loaded' } );
+
+        /**
+         * Panorama is ready to go
+         * @event Panorama#ready
+         * @type {object} 
+         */
+        this.dispatchEvent( { type: 'ready' } );
 
     },
 
@@ -4116,8 +4332,7 @@ Panorama.prototype = Object.assign( Object.create( Mesh.prototype ), {
      */
     updateTexture: function ( texture ) {
 
-        this.material.map = texture;
-        this.material.needsUpdate = true;
+        this.material.uniforms.tEquirect.value = texture;
 
     },
 
@@ -4270,8 +4485,8 @@ Panorama.prototype = Object.assign( Object.create( Mesh.prototype ), {
 
     setupTransitions: function () {
 
-        this.fadeInAnimation = new Tween.Tween( this.material )
-            .easing( Tween.Easing.Quartic.Out )
+        this.fadeInAnimation = new TWEEN.Tween( this.material )
+            .easing( TWEEN.Easing.Quartic.Out )
             .onStart( function () {
 
                 this.visible = true;
@@ -4286,8 +4501,8 @@ Panorama.prototype = Object.assign( Object.create( Mesh.prototype ), {
 
             }.bind( this ) );
 
-        this.fadeOutAnimation = new Tween.Tween( this.material )
-            .easing( Tween.Easing.Quartic.Out )
+        this.fadeOutAnimation = new TWEEN.Tween( this.material )
+            .easing( TWEEN.Easing.Quartic.Out )
             .onComplete( function () {
 
                 this.visible = false;
@@ -4302,8 +4517,8 @@ Panorama.prototype = Object.assign( Object.create( Mesh.prototype ), {
 
             }.bind( this ) );
 
-        this.enterTransition = new Tween.Tween( this )
-            .easing( Tween.Easing.Quartic.Out )
+        this.enterTransition = new TWEEN.Tween( this )
+            .easing( TWEEN.Easing.Quartic.Out )
             .onComplete( function () {
 
                 /**
@@ -4316,8 +4531,8 @@ Panorama.prototype = Object.assign( Object.create( Mesh.prototype ), {
             }.bind ( this ) )
             .start();
 
-        this.leaveTransition = new Tween.Tween( this )
-            .easing( Tween.Easing.Quartic.Out );
+        this.leaveTransition = new TWEEN.Tween( this )
+            .easing( TWEEN.Easing.Quartic.Out );
 
     },
 
@@ -4390,6 +4605,13 @@ Panorama.prototype = Object.assign( Object.create( Mesh.prototype ), {
 
         const duration = this.animationDuration;
 
+        /**
+         * Enter panorama event
+         * @event Panorama#enter
+         * @type {object} 
+         */
+        this.dispatchEvent( { type: 'enter' } );
+
         this.leaveTransition.stop();
         this.enterTransition
             .to( {}, duration )
@@ -4404,7 +4626,12 @@ Panorama.prototype = Object.assign( Object.create( Mesh.prototype ), {
 				
                 if ( this.loaded ) {
 
-                    this.fadeIn( duration );
+                    /**
+                     * Panorama is ready to go
+                     * @event Panorama#ready
+                     * @type {object} 
+                     */
+                    this.dispatchEvent( { type: 'ready' } );
 
                 } else {
 
@@ -4414,13 +4641,6 @@ Panorama.prototype = Object.assign( Object.create( Mesh.prototype ), {
 				
             }.bind( this ) )
             .start();
-
-        /**
-         * Enter panorama event
-         * @event Panorama#enter
-         * @type {object} 
-         */
-        this.dispatchEvent( { type: 'enter' } );
 
         this.children.forEach( child => {
 
@@ -4467,12 +4687,10 @@ Panorama.prototype = Object.assign( Object.create( Mesh.prototype ), {
          */
         this.dispatchEvent( { type: 'leave' } );
 
-        this.children.forEach( child => {
+        // dispatch panorama-leave to descendents
+        this.traverse( child => child.dispatchEvent( { type: 'panorama-leave' } ));
 
-            child.dispatchEvent( { type: 'panorama-leave' } );
-
-        } );
-
+        // mark active
         this.active = false;
 
     },
@@ -4483,6 +4701,10 @@ Panorama.prototype = Object.assign( Object.create( Mesh.prototype ), {
      * @instance
      */
     dispose: function () {
+
+        const { material } = this;
+
+        if ( material && material.uniforms && material.uniforms.tEquirect ) material.uniforms.tEquirect.value.dispose();
 
         this.infospotAnimation.stop();
         this.fadeInAnimation.stop();
@@ -4504,7 +4726,7 @@ Panorama.prototype = Object.assign( Object.create( Mesh.prototype ), {
 
             const { geometry, material } = object;
 
-            for ( var i = object.children.length - 1; i >= 0; i-- ) {
+            for ( let i = object.children.length - 1; i >= 0; i-- ) {
 
                 recursiveDispose( object.children[i] );
                 object.remove( object.children[i] );
@@ -4539,16 +4761,12 @@ Panorama.prototype = Object.assign( Object.create( Mesh.prototype ), {
  * @constructor
  * @param {string} image - Image url or HTMLImageElement
  */
-function ImagePanorama ( image, _geometry, _material ) {
+function ImagePanorama ( image ) {
 
-    const radius = 5000;
-    const geometry = _geometry || new SphereBufferGeometry( radius, 60, 40 );
-    const material = _material || new MeshBasicMaterial( { opacity: 0, transparent: true } );
-
-    Panorama.call( this, geometry, material );
+    Panorama.call( this );
 
     this.src = image;
-    this.radius = radius;
+    this.type = 'image_panorama';
 
 }
 
@@ -4563,6 +4781,8 @@ ImagePanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
      * @instance
      */
     load: function ( src ) {
+
+        Panorama.prototype.load.call( this, false );
 
         src = src || this.src;
 
@@ -4619,12 +4839,8 @@ ImagePanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
      */
     dispose: function () {
 
-        const { material: { map } } = this;
-
         // Release cached image
         Cache.remove( this.src );
-
-        if ( map ) { map.dispose(); }
 
         Panorama.prototype.dispose.call( this );
 
@@ -4638,18 +4854,45 @@ ImagePanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
  */
 function EmptyPanorama () {
 
-    const geometry = new BufferGeometry();
-    const material = new MeshBasicMaterial( { color: 0x000000, opacity: 0, transparent: true } );
+    Panorama.call( this );
 
-    geometry.addAttribute( 'position', new BufferAttribute( new Float32Array(), 1 ) );
-
-    Panorama.call( this, geometry, material );
+    this.type = 'empty_panorama';
 
 }
 
 EmptyPanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
 
-    constructor: EmptyPanorama
+    constructor: EmptyPanorama,
+
+    /**
+     * Create a skybox geometry
+     * @memberOf EmptyPanorama
+     * @instance
+     */
+    createGeometry: function() {
+
+        const geometry = new BufferGeometry();
+        geometry.addAttribute( 'position', new BufferAttribute( new Float32Array(), 1 ) );
+        return geometry;
+
+    },
+
+    /**
+     * Create material
+     * @memberOf EmptyPanorama
+     * @instance
+     */
+    createMaterial: function() {
+
+        new MeshBasicMaterial( { color: 0x000000, opacity: 0, transparent: true } );
+
+    },
+
+    getTexture: function () {
+
+        return null;
+
+    }
 
 } );
 
@@ -4660,24 +4903,10 @@ EmptyPanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
  */
 function CubePanorama ( images = [] ){
 
-    const edgeLength = 10000;
-    const shader = Object.assign( {}, ShaderLib[ 'cube' ] );
-    const geometry = new BoxBufferGeometry( edgeLength, edgeLength, edgeLength );
-    const material = new ShaderMaterial( {
-
-        fragmentShader: shader.fragmentShader,
-        vertexShader: shader.vertexShader,
-        uniforms: shader.uniforms,
-        side: BackSide,
-        transparent: true
-
-    } );
-
-    Panorama.call( this, geometry, material );
+    Panorama.call( this );
 
     this.images = images;
-    this.edgeLength = edgeLength;
-    this.material.uniforms.opacity.value = 0;
+    this.type = 'cube_panorama';
 
 }
 
@@ -4686,11 +4915,40 @@ CubePanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
     constructor: CubePanorama,
 
     /**
+     * Create material
+     * @memberOf CubePanorama
+     * @instance
+     */
+    createMaterial: function() {
+
+        const { fragmentShader, vertexShader, uniforms: _uniforms } = ShaderLib[ 'cube' ];
+        const uniforms = UniformsUtils.clone( _uniforms );
+        
+        uniforms.opacity.value = 0;
+
+        const material = new ShaderMaterial( {
+
+            fragmentShader,
+            vertexShader,
+            uniforms,
+            side: BackSide,
+            transparent: true,
+            opacity: 0
+
+        } );
+
+        return material;
+
+    },
+
+    /**
      * Load 6 images and bind listeners
      * @memberOf CubePanorama
      * @instance
      */
     load: function () {
+
+        Panorama.prototype.load.call( this, false );
 
         CubeTextureLoader.load( 	
 
@@ -4715,6 +4973,12 @@ CubePanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
         this.material.uniforms[ 'tCube' ].value = texture;
 
         Panorama.prototype.onLoad.call( this );
+
+    },
+
+    getTexture: function () {
+
+        return this.material.uniforms.tCube.value;
 
     },
 
@@ -4757,6 +5021,8 @@ function BasicPanorama () {
 
     CubePanorama.call( this, images );
 
+    this.type = 'basic_panorama';
+
 }
 
 BasicPanorama.prototype = Object.assign( Object.create( CubePanorama.prototype ), {
@@ -4764,6 +5030,29 @@ BasicPanorama.prototype = Object.assign( Object.create( CubePanorama.prototype )
     constructor: BasicPanorama
 
 } );
+
+/**
+ * User Agent
+ */
+const ua = window.navigator.userAgent || window.navigator.vendor || window.opera;
+
+/**
+ * Check if mobile device
+ */
+const isMobile = (() => {
+
+    return /(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows (ce|phone)|xda|xiino/i.test(ua)||/1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i.test(ua.substr(0,4));
+
+})();
+
+/**
+ * Check if Android
+ */
+const isAndroid = (() => {
+
+    return /(android)/i.test(ua);
+
+})();
 
 /**
  * @classdesc Video Panorama
@@ -4780,15 +5069,10 @@ BasicPanorama.prototype = Object.assign( Object.create( CubePanorama.prototype )
  */
 function VideoPanorama ( src, options = {} ) {
 
-    const radius = 5000;
-    const geometry = new SphereBufferGeometry( radius, 60, 40 );
-    const material = new MeshBasicMaterial( { opacity: 0, transparent: true } );
-
-    Panorama.call( this, geometry, material );
+    Panorama.call( this );
 
     this.src = src;
-
-    this.options = {
+    this.options = Object.assign( {
 
         videoElement: document.createElement( 'video' ),
         loop: true,
@@ -4797,13 +5081,12 @@ function VideoPanorama ( src, options = {} ) {
         playsinline: true,
         crossOrigin: 'anonymous'
 
-    };
-
-    Object.assign( this.options, options );
+    }, options );
 
     this.videoElement = this.options.videoElement;
     this.videoProgress = 0;
-    this.radius = radius;
+
+    this.type = 'video_panorama';
 
     this.addEventListener( 'leave', this.pauseVideo.bind( this ) );
     this.addEventListener( 'enter-fade-start', this.resumeVideoProgress.bind( this ) );
@@ -4815,14 +5098,6 @@ VideoPanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
 
     constructor: VideoPanorama,
 
-    isMobile: function () {
-
-        let check = false;
-        (function(a){if(/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino/i.test(a)||/1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i.test(a.substr(0,4))) check = true;})( window.navigator.userAgent || window.navigator.vendor || window.opera );
-        return check;
-
-    },
-
     /**
      * Load video panorama
      * @memberOf VideoPanorama
@@ -4831,9 +5106,10 @@ VideoPanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
      */
     load: function () {
 
+        Panorama.prototype.load.call( this, false );
+
         const { muted, loop, autoplay, playsinline, crossOrigin } = this.options;
         const video = this.videoElement;
-        const material = this.material;
         const onProgress = this.onProgress.bind( this );
         const onLoad = this.onLoad.bind( this );
 
@@ -4852,7 +5128,7 @@ VideoPanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
 
         const onloadeddata = function() {
 
-            this.setVideoTexture( video );
+            const videoTexture = this.setVideoTexture( video );
 
             if ( autoplay ) {
 
@@ -4867,7 +5143,7 @@ VideoPanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
             }
 
             // For mobile silent autoplay
-            if ( this.isMobile() ) {
+            if ( isMobile ) {
 
                 video.pause();
 
@@ -4897,11 +5173,8 @@ VideoPanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
 
             const loaded = () => {
 
-                // Fix for threejs r89 delayed update
-                material.map.needsUpdate = true;
-
                 onProgress( { loaded: 1, total: 1 } );
-                onLoad();
+                onLoad( videoTexture );
 
             };
 
@@ -4963,6 +5236,12 @@ VideoPanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
 
     },
 
+    onLoad: function () {
+
+        Panorama.prototype.onLoad.call( this );
+
+    },
+
     /**
      * Set video texture
      * @memberOf VideoPanorama
@@ -4980,6 +5259,8 @@ VideoPanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
         videoTexture.format = RGBFormat;
 
         this.updateTexture( videoTexture );
+
+        return videoTexture;
 	
     },
 
@@ -5124,7 +5405,7 @@ VideoPanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
 
         const video = this.videoElement;
 
-        if ( video.readyState >= 4 && video.autoplay && !this.isMobile() ) {
+        if ( video.readyState >= 4 && video.autoplay && !isMobile ) {
 
             this.playVideo();
 
@@ -5240,16 +5521,12 @@ VideoPanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
      */
     dispose: function () {
 
-        const { material: { map } } = this;
-
         this.pauseVideo();
 		
         this.removeEventListener( 'leave', this.pauseVideo.bind( this ) );
         this.removeEventListener( 'enter-fade-start', this.resumeVideoProgress.bind( this ) );
         this.removeEventListener( 'video-toggle', this.toggleVideo.bind( this ) );
         this.removeEventListener( 'video-time', this.setVideoCurrentTime.bind( this ) );
-
-        if ( map ) { map.dispose(); }
 
         Panorama.prototype.dispose.call( this );
 
@@ -5514,12 +5791,11 @@ function GoogleStreetviewPanorama ( panoId, apiKey ) {
     ImagePanorama.call( this );
 
     this.panoId = panoId;
-
     this.gsvLoader = null;
-
     this.loadRequested = false;
-
     this.setupGoogleMapAPI( apiKey );
+
+    this.type = 'google_streetview_panorama';
 
 }
 
@@ -5534,6 +5810,8 @@ GoogleStreetviewPanorama.prototype = Object.assign( Object.create( ImagePanorama
      * @instance
      */
     load: function ( panoId ) {
+
+        Panorama.prototype.load.call( this, false );
 
         this.loadRequested = true;
 
@@ -5555,11 +5833,28 @@ GoogleStreetviewPanorama.prototype = Object.assign( Object.create( ImagePanorama
      */
     setupGoogleMapAPI: function ( apiKey ) {
 
+        const scriptId = 'panolens-gmapscript';
+        const onScriptLoaded = this.setGSVLoader.bind( this );
+
+        if( document.querySelector( `#${scriptId}` ) ) {
+            onScriptLoaded();
+            return;
+        }
+
         const script = document.createElement( 'script' );
+        script.id = scriptId;
         script.src = 'https://maps.googleapis.com/maps/api/js?';
         script.src += apiKey ? 'key=' + apiKey : '';
-        script.onreadystatechange = this.setGSVLoader.bind( this );
-        script.onload = this.setGSVLoader.bind( this );
+        if( script.readyState ) { // IE
+            script.onreadystatechange = function() {
+                if ( script.readyState === 'loaded' || script.readyState === 'complete' ) {
+                    script.onreadystatechange = null;
+                    onScriptLoaded();
+                }
+            };
+        } else {
+            script.onload = onScriptLoaded;
+        }
 
         document.querySelector( 'head' ).appendChild( script );
 
@@ -5672,55 +5967,52 @@ const StereographicShader = {
 
     },
 
-    vertexShader: [
+    vertexShader: `
 
-        'varying vec2 vUv;',
+        varying vec2 vUv;
 
-        'void main() {',
+        void main() {
 
-        'vUv = uv;',
-        'gl_Position = vec4( position, 1.0 );',
+            vUv = uv;
+            gl_Position = vec4( position, 1.0 );
 
-        '}' 
+        }
 
-    ].join( '\n' ),
+    `,
 
-    fragmentShader: [
+    fragmentShader: `
 
-        'uniform sampler2D tDiffuse;',
-        'uniform float resolution;',
-        'uniform mat4 transform;',
-        'uniform float zoom;',
-        'uniform float opacity;',
+        uniform sampler2D tDiffuse;
+        uniform float resolution;
+        uniform mat4 transform;
+        uniform float zoom;
+        uniform float opacity;
 
-        'varying vec2 vUv;',
+        varying vec2 vUv;
 
-        'const float PI = 3.141592653589793;',
+        const float PI = 3.141592653589793;
 
-        'void main(){',
+        void main(){
 
-        'vec2 position = -1.0 +  2.0 * vUv;',
+            vec2 position = -1.0 +  2.0 * vUv;
 
-        'position *= vec2( zoom * resolution, zoom * 0.5 );',
+            position *= vec2( zoom * resolution, zoom * 0.5 );
 
-        'float x2y2 = position.x * position.x + position.y * position.y;',
-        'vec3 sphere_pnt = vec3( 2. * position, x2y2 - 1. ) / ( x2y2 + 1. );',
+            float x2y2 = position.x * position.x + position.y * position.y;
+            vec3 sphere_pnt = vec3( 2. * position, x2y2 - 1. ) / ( x2y2 + 1. );
 
-        'sphere_pnt = vec3( transform * vec4( sphere_pnt, 1.0 ) );',
+            sphere_pnt = vec3( transform * vec4( sphere_pnt, 1.0 ) );
 
-        'vec2 sampleUV = vec2(',
-        '(atan(sphere_pnt.y, sphere_pnt.x) / PI + 1.0) * 0.5,',
-        '(asin(sphere_pnt.z) / PI + 0.5)',
-        ');',
+            vec2 sampleUV = vec2(
+                (atan(sphere_pnt.y, sphere_pnt.x) / PI + 1.0) * 0.5,
+                (asin(sphere_pnt.z) / PI + 0.5)
+            );
 
-        'gl_FragColor = texture2D( tDiffuse, sampleUV );',
+            gl_FragColor = texture2D( tDiffuse, sampleUV );
+            gl_FragColor.a *= opacity;
 
-        'gl_FragColor.a *= opacity;',
-
-        '}'
-
-    ].join( '\n' )
-
+        }
+    `
 };
 
 /**
@@ -5728,19 +6020,15 @@ const StereographicShader = {
  * @constructor
  * @param {string} type 		- Type of little planet basic class
  * @param {string} source 		- URL for the image source
- * @param {number} [size=10000] - Size of plane geometry
- * @param {number} [ratio=0.5]  - Ratio of plane geometry's height against width
  */
-function LittlePlanet ( type = 'image', source, size = 10000, ratio = 0.5 ) {
+function LittlePlanet ( type = 'image', source ) {
 
     if ( type === 'image' ) {
 
-        ImagePanorama.call( this, source, this.createGeometry( size, ratio ), this.createMaterial( size ) );
+        ImagePanorama.call( this, source );
 
     }
 
-    this.size = size;
-    this.ratio = ratio;
     this.EPS = 0.000001;
     this.frameId = null;
 
@@ -5754,6 +6042,8 @@ function LittlePlanet ( type = 'image', source, size = 10000, ratio = 0.5 ) {
 
     this.vectorX = new Vector3( 1, 0, 0 );
     this.vectorY = new Vector3( 0, 1, 0 );
+
+    this.type = 'little_planet';
 
     this.addEventListener( 'window-resize', this.onWindowResize );
 
@@ -5787,26 +6077,38 @@ LittlePlanet.prototype = Object.assign( Object.create( ImagePanorama.prototype )
 
     },
 
-    createGeometry: function ( size, ratio ) {
+    /**
+     * Create a skybox geometry
+     * @memberOf LittlePlanet
+     * @instance
+     */
+    createGeometry: function ( edgeLength ) {
 
-        return new PlaneBufferGeometry( size, size * ratio );
+        const ratio = 0.5;
+        return new PlaneBufferGeometry( edgeLength, ratio * edgeLength );
 
     },
 
-    createMaterial: function ( size ) {
+    /**
+     * Create material
+     * @memberOf LittlePlanet
+     * @instance
+     */
+    createMaterial: function ( size = this.edgeLength ) {
 
-        const shader = Object.assign( {}, StereographicShader ), uniforms = shader.uniforms;
+        const { fragmentShader, vertexShader, uniforms: _uniforms } = StereographicShader;
+        const uniforms = UniformsUtils.clone( _uniforms );
 
         uniforms.zoom.value = size;
         uniforms.opacity.value = 0.0;
 
         return new ShaderMaterial( {
 
-            uniforms: uniforms,
-            vertexShader: shader.vertexShader,
-            fragmentShader: shader.fragmentShader,
-            side: BackSide,
-            transparent: true
+            vertexShader,
+            fragmentShader,
+            uniforms,
+            transparent: true,
+            opacity: 0
 
         } );
 		
@@ -5865,10 +6167,6 @@ LittlePlanet.prototype = Object.assign( Object.create( ImagePanorama.prototype )
 
             break;
 
-        default:
-
-            break;
-
         }
 
         this.onUpdateCallback();
@@ -5905,10 +6203,6 @@ LittlePlanet.prototype = Object.assign( Object.create( ImagePanorama.prototype )
             const distance = Math.sqrt( dx * dx + dy * dy );
 
             this.addZoomDelta( this.userMouse.pinchDistance - distance );
-
-            break;
-
-        default:
 
             break;
 
@@ -5992,6 +6286,18 @@ LittlePlanet.prototype = Object.assign( Object.create( ImagePanorama.prototype )
 
     },
 
+    updateTexture: function ( texture ) {
+
+        this.material.uniforms.tDiffuse.value = texture;
+
+    },
+
+    getTexture: function () {
+
+        return this.material.uniforms.tDiffuse.value;
+
+    },
+
     onLoad: function ( texture ) {
 
         this.material.uniforms.resolution.value = this.container.clientWidth / this.container.clientHeight;
@@ -6043,12 +6349,12 @@ LittlePlanet.prototype = Object.assign( Object.create( ImagePanorama.prototype )
  * @classdesc Image Little Planet
  * @constructor
  * @param {string} source 		- URL for the image source
- * @param {number} [size=10000] - Size of plane geometry
- * @param {number} [ratio=0.5]  - Ratio of plane geometry's height against width
  */
-function ImageLittlePlanet ( source, size, ratio ) {
+function ImageLittlePlanet ( source ) {
 
-    LittlePlanet.call( this, 'image', source, size, ratio );
+    LittlePlanet.call( this, 'image', source );
+
+    this.type = 'image_little_planet';
 
 }
 
@@ -6113,14 +6419,11 @@ ImageLittlePlanet.prototype = Object.assign( Object.create( LittlePlanet.prototy
  */
 function CameraPanorama ( constraints ) {
 
-    const radius = 5000;
-    const geometry = new SphereBufferGeometry( radius, 60, 40 );
-    const material = new MeshBasicMaterial( { visible: false });
-
-    Panorama.call( this, geometry, material );
+    Panorama.call( this );
 
     this.media = new Media( constraints );
-    this.radius = radius;
+
+    this.type = 'camera_panorama';
 
     this.addEventListener( 'enter', this.start.bind( this ) );
     this.addEventListener( 'leave', this.stop.bind( this ) );
@@ -6183,6 +6486,589 @@ CameraPanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
 } );
 
 /**
+ * @classdesc Stereo Image Panorama
+ * @constructor
+ * @param {string} src - image source
+ * @param {number} [stereo=new Stereo()] - stereo mixin
+ */
+function StereoImagePanorama ( src, stereo = new Stereo() ){
+
+    ImagePanorama.call( this, src );
+
+    this.stereo = stereo;
+    this.type = 'stereo_image_panorama';
+
+}
+
+StereoImagePanorama.prototype = Object.assign( Object.create( ImagePanorama.prototype ), {
+
+    constructor: StereoImagePanorama,
+
+    /**
+     * This will be called when texture is ready
+     * @param  {THREE.Texture} texture - Image texture
+     * @memberOf StereoImagePanorama
+     * @instance
+     */
+    onLoad: function ( texture ) {
+
+        const { width, height } = texture.image;
+        let format = null;
+
+        if ( width / height === 4 ) { 
+            
+            format = STEREOFORMAT.SBS;
+        
+        } else { 
+
+            format = STEREOFORMAT.TAB;
+        
+        }
+
+        this.stereo.updateUniformByFormat( format, this.material.uniforms );
+
+        this.material.uniforms[ 'tEquirect' ].value = texture;
+
+        ImagePanorama.prototype.onLoad.call( this, texture );
+
+    },
+
+    /**
+     * Update Texture for Stereo Left Eye
+     * @memberOf StereoImagePanorama
+     * @instance
+     */
+    updateTextureToLeft: function() {
+
+        this.stereo.updateTextureToLeft( this.material.uniforms.offset.value );
+
+    },
+
+    /**
+     * Update Texture for Stereo Right Eye
+     * @memberOf StereoImagePanorama
+     * @instance
+     */
+    updateTextureToRight: function() {
+
+        this.stereo.updateTextureToRight( this.material.uniforms.offset.value );
+
+    },
+
+    /**
+     * Dispose
+     * @memberOf StereoImagePanorama
+     * @instance
+     */
+    dispose: function () {	
+
+        const { value } = this.material.uniforms.tEquirect;
+
+        if ( value instanceof Texture ) {
+
+            value.dispose();
+
+        }
+
+        ImagePanorama.prototype.dispose.call( this );
+
+    }
+
+} );
+
+/**
+ * @classdesc Stereo Image Panorama
+ * @constructor
+ * @param {string} src - image source
+ * @param {object} options - { @see VideoPanorama }
+ * @param {number} [stereo=new Stereo()] - stereo mixin
+ */
+function StereoVideoPanorama ( src, options = {}, stereo = new Stereo() ){
+
+    VideoPanorama.call( this, src, options );
+
+    this.stereo = stereo;
+    this.type = 'stereo_video_panorama';
+
+}
+
+StereoVideoPanorama.prototype = Object.assign( Object.create( VideoPanorama.prototype ), {
+
+    constructor: StereoVideoPanorama,
+
+    /**
+     * This will be called when video texture is ready
+     * @param  {THREE.VideoTexture} texture - Video texture
+     * @memberOf StereoVideoPanorama
+     * @instance
+     */
+    onLoad: function ( texture ) {
+
+        const { videoWidth, videoHeight } = texture.image;
+        let format = null;
+
+        if ( videoWidth / videoHeight === 4 ) { 
+            
+            format = STEREOFORMAT.SBS;
+        
+        } else { 
+
+            format = STEREOFORMAT.TAB;
+        
+        }
+
+        this.stereo.updateUniformByFormat( format, this.material.uniforms );
+
+        this.material.uniforms[ 'tEquirect' ].value = texture;
+
+        VideoPanorama.prototype.onLoad.call( this );
+
+    },
+
+    /**
+     * Update Texture for Stereo Left Eye
+     * @memberOf StereoVideoPanorama
+     * @instance
+     */
+    updateTextureToLeft: function() {
+
+        this.stereo.updateTextureToLeft( this.material.uniforms.offset.value );
+
+    },
+
+    /**
+     * Update Texture for Stereo Right Eye
+     * @memberOf StereoVideoPanorama
+     * @instance
+     */
+    updateTextureToRight: function() {
+
+        this.stereo.updateTextureToRight( this.material.uniforms.offset.value );
+
+    },
+
+    /**
+     * Dispose
+     * @memberOf StereoVideoPanorama
+     * @instance
+     */
+    dispose: function () {	
+
+        const { value } = this.material.uniforms.tEquirect;
+
+        if ( value instanceof Texture ) {
+
+            value.dispose();
+
+        }
+
+        VideoPanorama.prototype.dispose.call( this );
+
+    }
+
+} );
+
+/* eslint-disable */
+var _0x5ea5=['playsinline','dispose','appendBuffer','autoplay','mediaRange','toLowerCase','currentIndex','querySelectorAll','video/mp4','failure\x20during\x20first\x20frame\x20download','readyState','timestampOffset','createObjectURL','send','moment_id','start_frame','splice','match','PanoMoment\x20Web\x20SDK\x20Disposed','clockwise','updating','onreadystatechange','onload','s3.amazonaws.com/data.panomoments.com','fastSeek','blob','addEventListener','failure\x20during\x20init','floor','replace','web_video_url','s3.amazonaws.com/staging-data.panomoments.com','Buffer\x20not\x20ready.\x20Retrying\x20in\x201\x20second.','responseType','canplaythrough','createElement','&public_api_key=','&moment_id=','filter','Invalid\x20Index','arrayBuffer','json','GET','then','Initialization','map','Representation','toString','index','test','public_api_key','web_mpd_url','text/xml','src','round','video','min','text','setAttribute','getAttribute','content','muted','SegmentURL','textureReady','indexOf','auto','FrameCount','&sdk_client_type=web','abs','bind','currentTime','moment_type','target','DONE','variation','set','https://my.panomoments.com/sdk/moment','timeupdate','append','&variation=','cache-control','https://staging-data.panomoments.com/','Range','split','parseFromString','https://data.panomoments.com/','ceil','firstPassCompleteIndex','addSourceBuffer','length','pragma','range','allow_streaming','application/x-www-form-urlencoded','pause','mode','Render\x20called\x20before\x20download\x20is\x20ready.\x20Wait\x20for\x20Ready\x20callback\x20before\x20calling\x20Render.','push','open','URL','POST','Error:\x20','userAgent','aspect_ratio','preload','bytes=','aligned','private_api_key','error','log','HAVE_ENOUGH_DATA','HAVE_FUTURE_DATA','no-cache'];(function(_0x229802,_0x5ea547){var _0x4b6d65=function(_0xd7fd9f){while(--_0xd7fd9f){_0x229802['push'](_0x229802['shift']());}};_0x4b6d65(++_0x5ea547);}(_0x5ea5,0xf5));var _0x4b6d=function(_0x229802,_0x5ea547){_0x229802=_0x229802-0x0;var _0x4b6d65=_0x5ea5[_0x229802];return _0x4b6d65;};function PanoMoments(_0x3d1178,_0x32fef6,_0x356de0,_0x2cada2){var _0x18a280=this;var _0x3ee2ce;var _0xd8607;var _0x4eac4e=[];var _0x2cf931;var _0x82e951=document[_0x4b6d('0x10')](_0x4b6d('0x24'));var _0x1ba7a8=[];var _0x1c34b3;var _0x5c78e0;var _0x57f1d8;var _0x5186f4;var _0x186df2;var _0x544415;var _0x24cb2c;var _0x4c8594;var _0x262cbd=[];var _0xca59ba=-0x1;var _0x2d50af;var _0x3a4493=[];var _0x54e868=0x0;var _0x1b1049=0x0;var _0x1f2cc5;var _0x5515a4;var _0x186df2;var _0x1add2f={};var _0x19debf;var _0x5143d4;var _0x4ee53f;var _0x2bd974;var _0x1197e7;var _0x1055e7;var _0x21f945;var _0x33d8d3;if(navigator[_0x4b6d('0x53')][_0x4b6d('0x6f')](/Android/i)){_0x57f1d8=!![];}else if(navigator[_0x4b6d('0x53')][_0x4b6d('0x6f')](/iPhone|iPad|iPod/i)){_0x5c78e0=!![];}if(/Chrome/i['test'](navigator[_0x4b6d('0x53')]['toLowerCase']())||/Chrome WebView/i[_0x4b6d('0x1e')](navigator['userAgent'][_0x4b6d('0x63')]())||/Chromium/i['test'](navigator['userAgent']['toLowerCase']())){_0x5186f4=!![];}else if(/Firefox/i[_0x4b6d('0x1e')](navigator[_0x4b6d('0x53')][_0x4b6d('0x63')]())||/Supermedium/i[_0x4b6d('0x1e')](navigator['userAgent'][_0x4b6d('0x63')]())){_0x186df2=!![];if(!_0x57f1d8){_0x5186f4=!![];}}else if(/Mobile Safari/i[_0x4b6d('0x1e')](navigator[_0x4b6d('0x53')][_0x4b6d('0x63')]()));else if(/Safari/i[_0x4b6d('0x1e')](navigator['userAgent'][_0x4b6d('0x63')]())&&!/Chrome/i['test'](navigator[_0x4b6d('0x53')][_0x4b6d('0x63')]()));if(!_0x5186f4){_0x82e951[_0x4b6d('0x27')](_0x4b6d('0x5e'),'');_0x82e951[_0x4b6d('0x2a')]=!![];_0x82e951[_0x4b6d('0x61')]=!![];}else {_0x2cf931=new MediaSource();_0x82e951[_0x4b6d('0x22')]=window[_0x4b6d('0x50')][_0x4b6d('0x6a')](_0x2cf931);_0x82e951[_0x4b6d('0x55')]=_0x4b6d('0x2e');_0x2cf931[_0x4b6d('0x7')]('sourceopen',_0x4bc2d2);}fetch(_0x4b6d('0x39'),{'method':_0x4b6d('0x51'),'body':'private_api_key='+_0x3d1178[_0x4b6d('0x58')]+_0x4b6d('0x11')+_0x3d1178[_0x4b6d('0x1f')]+_0x4b6d('0x12')+_0x3d1178[_0x4b6d('0x6c')]+_0x4b6d('0x3c')+_0x3d1178[_0x4b6d('0x37')]+_0x4b6d('0x30'),'headers':{'Content-Type':_0x4b6d('0x4a')}})[_0x4b6d('0x18')](_0x5410f8=>_0x5410f8[_0x4b6d('0x16')]())[_0x4b6d('0x18')](_0x42975b=>{_0x1add2f=_0x42975b;_0x19debf=_0x1add2f[_0x4b6d('0x20')];_0x5143d4=_0x1add2f[_0x4b6d('0xb')];_0x307095();});this[_0x4b6d('0x64')]=0x0;this['FrameCount']=0x0;this['render']=function(_0xb1c266){if(_0x1f2cc5){_0x2bd974=_0xb1c266/_0x18a280[_0x4b6d('0x2f')]*0x168;_0x1197e7=0x168/_0x18a280[_0x4b6d('0x2f')];if(!_0x1add2f[_0x4b6d('0x0')]){_0x2bd974=-_0x2bd974;_0x2bd974=0x21c+_0x2bd974;}else if(_0x2bd974<0x0){_0x2bd974=0x168+_0x2bd974;}_0x2bd974=_0x2bd974%0x168;_0x4ee53f=parseInt(Math['round'](_0x2bd974/_0x1197e7),0xa);if(_0x4ee53f==_0x18a280[_0x4b6d('0x2f')]&&_0x1add2f[_0x4b6d('0x34')]){_0x4ee53f=_0x18a280[_0x4b6d('0x2f')]-0x1;}else if(_0x4ee53f==_0x18a280[_0x4b6d('0x2f')]&&!_0x1add2f[_0x4b6d('0x34')]||!_0x4ee53f){_0x4ee53f=0x0;}if(_0x18a280['textureReady']()&&_0xca59ba!=_0x4ee53f){_0x18a280['currentIndex']=_0x26ae7d();_0x312f77(_0x18a280[_0x4b6d('0x64')]);_0xca59ba=_0x4ee53f;}_0x32fef6(_0x82e951,_0x1add2f);}else {console[_0x4b6d('0x5a')](_0x4b6d('0x4d'));}};this[_0x4b6d('0x5f')]=function(){_0x82e951['src']='';_0x82e951=null;_0x32fef6=null;_0x356de0=null;_0x2cada2=null;_0x3ee2ce=null;_0xd8607=null;_0x4eac4e=[];_0x2cf931=null;_0x1ba7a8[_0x4b6d('0x6e')](0x0,_0x1ba7a8[_0x4b6d('0x46')]);_0x1c34b3=null;_0x5c78e0=null;_0x57f1d8=null;_0x5186f4=null;_0x186df2=null;_0x544415=null;_0x24cb2c=null;_0x4c8594=null;_0x262cbd=[];_0x262cbd[_0x4b6d('0x6e')](0x0,_0x262cbd[_0x4b6d('0x46')]);_0xca59ba=null;_0x2d50af=null;_0x3a4493[_0x4b6d('0x6e')](0x0,_0x3a4493[_0x4b6d('0x46')]);_0x54e868=null;_0x1b1049=null;_0x1f2cc5=null;_0x5515a4=null;_0x186df2=null;_0x1add2f={};_0x19debf=null;_0x5143d4=null;_0x4ee53f=null;_0x2bd974=null;_0x1197e7=null;_0x1055e7=null;_0x21f945=null;_0x33d8d3=null;console[_0x4b6d('0x5a')](_0x4b6d('0x70'));};this[_0x4b6d('0x2c')]=function(){if(_0x186df2&&_0x82e951[_0x4b6d('0x68')]===_0x82e951[_0x4b6d('0x5c')]||_0x82e951[_0x4b6d('0x68')]===_0x82e951[_0x4b6d('0x5b')]){return !![];}return ![];};function _0x4bc2d2(){_0x3ee2ce=_0x2cf931[_0x4b6d('0x45')]('video/mp4;\x20codecs=\x22avc1.640033\x22');_0x3ee2ce[_0x4b6d('0x4c')]='sequence';}function _0x307095(){_0x5d649d(_0x19debf,{'responseType':_0x4b6d('0x26'),'onreadystatechange':_0x1b3018=>{const _0x3e0c62=_0x1b3018[_0x4b6d('0x35')];if(_0x3e0c62&&_0x3e0c62[_0x4b6d('0x68')]==_0x3e0c62[_0x4b6d('0x36')]){var _0x261b18=new DOMParser();var _0x5f5c66=_0x261b18[_0x4b6d('0x41')](_0x3e0c62['response'],_0x4b6d('0x21'),0x0);_0x11d351(_0x5f5c66);if(!_0x1add2f[_0x4b6d('0x49')]){_0x1c34b3=_0x18a280[_0x4b6d('0x2f')];}else {_0x1c34b3=Math[_0x4b6d('0x25')](0x3c,_0x18a280['FrameCount']);}_0xabdfb6(_0x5143d4);}}});}const _0xabdfb6=async _0x1ee151=>{var _0x457032=new Headers();const _0x46643d=_0x4b6d('0x56')+_0x262cbd[0x0][_0x4b6d('0x28')](_0x4b6d('0x48'))[_0x4b6d('0x1c')]();_0x5515a4=_0x1add2f[_0x4b6d('0x54')]?_0x1add2f[_0x4b6d('0x54')]:1.7777777;if(_0x1ee151[_0x4b6d('0x2d')]('https://data.panomoments.com/')>-0x1){_0x1ee151=_0x1ee151[_0x4b6d('0xa')](/data.panomoments.com/i,'s3.amazonaws.com/data.panomoments.com');}else if(_0x1ee151[_0x4b6d('0x2d')](_0x4b6d('0x3e'))>-0x1){_0x1ee151=_0x1ee151[_0x4b6d('0xa')](/staging-data.panomoments.com/i,'s3.amazonaws.com/staging-data.panomoments.com');}_0x457032['append'](_0x4b6d('0x3f'),_0x46643d);let _0x868f4f=0x0;let _0x54c422=![];while(_0x868f4f<0x5&&!_0x54c422){try{const _0x6c5158=await fetch(_0x1ee151,{'headers':_0x457032,'method':_0x4b6d('0x17')});const _0x405104=await _0x6c5158[_0x4b6d('0x15')]();_0x8ae31f(_0x5143d4,new Uint8Array(_0x405104));_0x54c422=!![];}catch(_0x499c27){console[_0x4b6d('0x5a')](_0x4b6d('0x8'),_0x868f4f,_0x499c27);_0x868f4f++;}}};const _0x14fedb=_0xa0c5f1=>{_0x128fa7(_0xa0c5f1);};const _0x128fa7=_0x5bb4c7=>{if((!_0x3ee2ce||_0x3ee2ce&&_0x3ee2ce['updating'])&&_0x1b1049==0x0){console[_0x4b6d('0x5a')](_0x4b6d('0xd'));_0x1055e7=setTimeout(()=>{_0x128fa7(_0x5bb4c7);},0x3e8);return;}else if(_0x5bb4c7&&_0x3ee2ce&&!_0x3ee2ce[_0x4b6d('0x1')]&&_0x1b1049==0x0){_0x82e951[_0x4b6d('0x33')]+=0x1/_0xd8607;_0x3ee2ce[_0x4b6d('0x69')]=_0x82e951[_0x4b6d('0x33')];_0x3ee2ce[_0x4b6d('0x60')](_0x5bb4c7);_0x1b1049++;_0x1055e7=setTimeout(()=>{_0x128fa7(_0x5bb4c7);},0x1f4);}};function _0x11d351(_0x54209a){try{var _0x45cb65=_0x54209a[_0x4b6d('0x65')](_0x4b6d('0x1b'));_0xd8607=0x1;_0x4eac4e=_0x54209a[_0x4b6d('0x65')](_0x4b6d('0x2b'));_0x262cbd=_0x54209a['querySelectorAll'](_0x4b6d('0x19'));_0x18a280[_0x4b6d('0x2f')]=_0x4eac4e[_0x4b6d('0x46')];}catch(_0x3cfd0f){console[_0x4b6d('0x5a')](_0x3cfd0f);}}function _0x312f77(_0x2277da){if(_0x33d8d3==_0x2277da)return;_0x33d8d3=_0x2277da;if(!_0x5186f4){if(_0x5c78e0||_0x186df2){if(!_0x1add2f['aligned']){_0x82e951[_0x4b6d('0x5')]((_0x2277da+framePadding)%_0x18a280['FrameCount']*0x1/_0xd8607);}else {_0x82e951['fastSeek'](_0x2277da*0x1/_0xd8607);}}else {_0x82e951['currentTime']=_0x2277da*0x1/_0xd8607;}}else if(_0x3a4493[_0x2277da]&&_0x3ee2ce&&!_0x3ee2ce[_0x4b6d('0x1')]&&_0x1f2cc5){if(_0x2277da<_0x18a280[_0x4b6d('0x2f')]){_0x82e951[_0x4b6d('0x33')]+=0x1/_0xd8607;_0x3ee2ce[_0x4b6d('0x69')]=_0x82e951[_0x4b6d('0x33')];if(!_0x1add2f[_0x4b6d('0x57')]){_0x3ee2ce[_0x4b6d('0x60')](_0x3a4493[(_0x2277da+framePadding)%_0x18a280[_0x4b6d('0x2f')]]);}else {_0x3ee2ce[_0x4b6d('0x60')](_0x3a4493[_0x2277da]);}}else {console[_0x4b6d('0x5a')](_0x4b6d('0x14'));}}}function _0x1b5edb(_0x294f3b,_0x431268){_0x544415=_0x2d50af['length'];_0x24cb2c=0x0;_0x4c8594=0x0;var _0xb65bab=0x8;if(navigator[_0x4b6d('0x53')][_0x4b6d('0x6f')](/Android/i)){_0xb65bab=0x4;}for(let _0x2c2050=0x0;_0x2c2050<_0xb65bab;_0x2c2050++){_0x52b042(_0x294f3b,_0x1c34b3,()=>{if(!_0x1f2cc5){_0x356de0(_0x82e951,_0x1add2f);}_0x1f2cc5=!![];for(let _0x2ec5ec=0x0;_0x2ec5ec<_0xb65bab;_0x2ec5ec++){_0x52b042(_0x294f3b,_0x544415,()=>{_0x2cada2(_0x82e951,_0x1add2f);});}});}}function _0x52b042(_0x5aa3cb,_0x467c46,_0x371a46){setTimeout(_0x41719d,0x0,_0x5aa3cb,_0x467c46,_0x371a46);}async function _0x41719d(_0x3bad4a,_0x13519e,_0x207ace){while(_0x54e868<_0x13519e){let _0x3fd877=0x0;let _0x5bd905=![];const _0x3467c9=_0x2d50af[_0x24cb2c++];_0x54e868++;while(_0x3fd877<0x3&&!_0x5bd905){const _0xc75bce=new Headers();_0xc75bce[_0x4b6d('0x3b')](_0x4b6d('0x3f'),_0x3467c9[_0x4b6d('0x29')]);_0xc75bce['append']('cache-control','no-store');_0xc75bce[_0x4b6d('0x3b')](_0x4b6d('0x47'),_0x4b6d('0x5d'));_0xc75bce[_0x4b6d('0x3b')](_0x4b6d('0x3d'),_0x4b6d('0x5d'));try{const _0x4de632=await fetch(_0x3bad4a,{'headers':_0xc75bce,'method':'GET'});const _0x385c5e=await _0x4de632[_0x4b6d('0x15')]();_0x43e4ee(_0x385c5e,_0x3467c9[_0x4b6d('0x1d')]);_0x4c8594++;_0x5bd905=!![];}catch(_0x2d8b23){console[_0x4b6d('0x5a')]('exception\x20during\x20chunk\x20download,\x20retrying',++_0x3fd877,_0x2d8b23);_0x3fd877++;}finally{}}}if(_0x4c8594===_0x13519e){_0x207ace();}}function _0x25174f(){_0x82e951[_0x4b6d('0x33')]=_0x18a280[_0x4b6d('0x64')];_0x21f945=setTimeout(function(){_0x5ab3d3();},0x64);}function _0x5ab3d3(){if(_0x21f945){clearTimeout(_0x21f945);_0x21f945=null;}_0x82e951[_0x4b6d('0x33')]=_0x18a280[_0x4b6d('0x64')];_0x1f2cc5=!![];_0x356de0(_0x82e951,_0x1add2f);_0x2cada2(_0x82e951,_0x1add2f);_0x82e951['removeEventListener'](_0x4b6d('0xf'),_0x25174f,![]);_0x82e951['removeEventListener'](_0x4b6d('0x3a'),_0x5ab3d3,![]);}function _0x5d649d(_0x1a7071,_0x46d540){if(_0x1a7071!=null&&_0x1a7071!==''){var _0x4a8555=new XMLHttpRequest();_0x4a8555[_0x4b6d('0x4f')](_0x4b6d('0x17'),_0x1a7071,!![]);if(_0x46d540){_0x4a8555['responseType']=_0x46d540[_0x4b6d('0xe')];if(_0x46d540[_0x4b6d('0x2')]){_0x4a8555['onreadystatechange']=_0x46d540[_0x4b6d('0x2')][_0x4b6d('0x32')](_0x4a8555);}if(_0x46d540['onload']){_0x4a8555[_0x4b6d('0x3')]=_0x46d540[_0x4b6d('0x3')];}}_0x4a8555['addEventListener'](_0x4b6d('0x59'),function(_0x1a8b46){console['log'](_0x4b6d('0x52')+_0x1a8b46+'\x20Could\x20not\x20load\x20url.');},![]);_0x4a8555[_0x4b6d('0x6b')]();return _0x4a8555;}}const _0x8ae31f=async(_0x3e2ac0,_0x4beb27)=>{var _0x2c71a6=new Headers();var _0x1ac276=_0x1add2f[_0x4b6d('0x6d')]+0x5a;_0x1197e7=0x168/_0x18a280[_0x4b6d('0x2f')];if(!_0x1add2f[_0x4b6d('0x0')]){_0x1ac276=-_0x1ac276;}if(_0x1ac276<0x0){_0x1ac276=0x168+_0x1ac276;}_0x18a280[_0x4b6d('0x64')]=parseInt(Math[_0x4b6d('0x23')](_0x1ac276/_0x1197e7),0xa);const _0x4190ce=_0x4b6d('0x56')+_0x4eac4e[_0x18a280[_0x4b6d('0x64')]][_0x4b6d('0x28')](_0x4b6d('0x62'))[_0x4b6d('0x1c')]();_0x2c71a6[_0x4b6d('0x3b')](_0x4b6d('0x3f'),_0x4190ce);if(_0x3e2ac0[_0x4b6d('0x2d')](_0x4b6d('0x42'))>-0x1){_0x3e2ac0=_0x3e2ac0['replace'](/data.panomoments.com/i,_0x4b6d('0x4'));}else if(_0x3e2ac0[_0x4b6d('0x2d')](_0x4b6d('0x3e'))>-0x1){_0x3e2ac0=_0x3e2ac0[_0x4b6d('0xa')](/staging-data.panomoments.com/i,_0x4b6d('0xc'));}let _0x1d5027=0x0;let _0x434012=![];while(_0x1d5027<0x5&&!_0x434012){try{const _0x1d96e7=await fetch(_0x3e2ac0,{'headers':_0x2c71a6,'method':_0x4b6d('0x17')});const _0x47f87b=await _0x1d96e7['arrayBuffer']();var _0x312396=new Uint8Array(_0x47f87b);var _0x3a684f=new Int8Array(_0x4beb27[_0x4b6d('0x46')]+_0x312396['length']);_0x3a684f[_0x4b6d('0x38')](_0x4beb27);_0x3a684f[_0x4b6d('0x38')](_0x312396,_0x4beb27[_0x4b6d('0x46')]);if(!_0x5186f4){_0x82e951['src']=window[_0x4b6d('0x50')][_0x4b6d('0x6a')](new Blob([_0x3a684f],{'type':_0x4b6d('0x66')}));_0x82e951['pause']();_0x32fef6(_0x82e951,_0x1add2f);fetch(_0x5143d4)[_0x4b6d('0x18')](function(_0x3db38c){_0x3db38c[_0x4b6d('0x6')]()[_0x4b6d('0x18')](function(_0x21b809){_0x82e951[_0x4b6d('0x7')](_0x4b6d('0xf'),_0x25174f,![]);_0x82e951[_0x4b6d('0x7')]('timeupdate',_0x5ab3d3,![]);_0x82e951[_0x4b6d('0x22')]=window[_0x4b6d('0x50')][_0x4b6d('0x6a')](_0x21b809);_0x82e951[_0x4b6d('0x4b')]();});});}else {_0x43e4ee(_0x47f87b,_0x18a280[_0x4b6d('0x64')]);_0x14fedb(_0x3a684f);_0x32fef6(_0x82e951,_0x1add2f);_0x2d50af=_0x102dfc(_0x4eac4e,_0x1c34b3,_0x1ba7a8,![]);_0x1b5edb(_0x5143d4,0x1);}_0x434012=!![];}catch(_0xed3e30){console['log'](_0x4b6d('0x67'),_0x1d5027,_0xed3e30);_0x1d5027++;}}};function _0x43e4ee(_0x471f08,_0x4a8b62){_0x3a4493[_0x4a8b62]=new Uint8Array(_0x471f08);}const _0x26ae7d=()=>{var _0x9d89ad;if(!_0x5186f4){return _0x4ee53f;}_0x9d89ad=_0x4ee53f;if(_0x2d50af['length']!=0x0&&!_0x3a4493[_0x4ee53f]){var _0x512ee5,_0x5876e1,_0x49ddc8,_0x387281=![],_0x10a486=![];_0x512ee5=_0x4ee53f;while(!_0x387281&&_0x512ee5<_0x18a280[_0x4b6d('0x2f')]){if(_0x3a4493[_0x512ee5]){_0x387281=!![];_0x5876e1=_0x512ee5;}else {_0x512ee5++;}}_0x512ee5=_0x4ee53f;while(!_0x10a486&&_0x512ee5>=0x0){if(_0x3a4493[_0x512ee5]){_0x10a486=!![];_0x49ddc8=_0x512ee5;}else {_0x512ee5--;}}if(!_0x5876e1){_0x5876e1=_0x18a280[_0x4b6d('0x2f')];}if(Math[_0x4b6d('0x31')](_0x4ee53f-_0x5876e1)<=Math[_0x4b6d('0x31')](_0x4ee53f-_0x49ddc8)&&_0x5876e1==_0x18a280[_0x4b6d('0x2f')]){_0x9d89ad=0x0;}else if(Math[_0x4b6d('0x31')](_0x4ee53f-_0x5876e1)<=Math[_0x4b6d('0x31')](_0x4ee53f-_0x49ddc8)){_0x9d89ad=_0x5876e1;}else {_0x9d89ad=_0x49ddc8;}}else {_0x9d89ad=_0x4ee53f;}if(!_0x9d89ad){_0x9d89ad=0x0;}return _0x9d89ad;};function _0x4d4cfb(_0x1c8cc1,_0x58631b,_0x316ea7,_0x2c4bf2,_0x2450de){return {'header':_0x4b6d('0x3f'),'content':_0x4b6d('0x56')+_0x1c8cc1[_0x4b6d('0x28')](_0x4b6d('0x62'))[_0x4b6d('0x1c')](),'index':_0x58631b,'countPosition':_0x316ea7,'firstPass':_0x2c4bf2,'firstPassCompleteIndex':_0x2450de};}function _0x102dfc(_0x557e2e,_0x300b08,_0x187c55,_0x58611b=![]){var _0xb69eb4=[];var _0x39acd1=0x0;if(_0x58611b){for(var _0xcaa830=0x0;_0xcaa830<_0x557e2e[_0x4b6d('0x46')];_0xcaa830++){_0xb69eb4[_0x4b6d('0x4e')](_0x4d4cfb(_0x557e2e[_0xcaa830],_0xcaa830,![]));}return _0xb69eb4;}const _0x284b3a=parseInt(Math['round'](_0x557e2e[_0x4b6d('0x46')]/_0x300b08),0xa);const _0x3bc2cf=Math[_0x4b6d('0x43')](_0x557e2e[_0x4b6d('0x46')]/_0x300b08);var _0x19eb74=_0x300b08+_0x3bc2cf;for(var _0xcaa830=0x0;_0xcaa830<_0x19eb74;_0xcaa830++){if(_0x557e2e[_0xcaa830*_0x284b3a]){_0xb69eb4['push'](_0x4d4cfb(_0x557e2e[_0xcaa830*_0x284b3a],_0xcaa830*_0x284b3a,_0x39acd1++,!![],_0x19eb74));_0x187c55[_0x4b6d('0x4e')](_0xcaa830*_0x284b3a);}}_0x19eb74=_0xb69eb4[_0x4b6d('0x46')];for(var _0xcaa830=0x0;_0xcaa830<_0xb69eb4[_0x4b6d('0x46')];_0xcaa830++){_0xb69eb4[_0xcaa830][_0x4b6d('0x44')]=_0x19eb74;}var _0x52ba20=_0x284b3a;_0x39acd1=0x0;for(var _0x18391f=Math[_0x4b6d('0x9')](_0x284b3a/0x2);_0x18391f>0x1;_0x18391f=Math[_0x4b6d('0x9')](_0x18391f/0x2)){for(var _0xcaa830=0x0;_0xcaa830<_0x557e2e[_0x4b6d('0x46')]/_0x52ba20;_0xcaa830++){if(_0x557e2e[_0x18391f+_0xcaa830*_0x52ba20]){_0xb69eb4['push'](_0x4d4cfb(_0x557e2e[_0x18391f+_0xcaa830*_0x52ba20],_0x18391f+_0xcaa830*_0x52ba20,_0x39acd1++,![],_0x19eb74));}}_0x52ba20=Math['floor'](_0x18391f/0x2);}var _0x542978=[];for(var _0xcaa830=0x0;_0xcaa830<_0xb69eb4[_0x4b6d('0x46')];_0xcaa830++){_0x542978[_0xb69eb4[_0xcaa830][_0x4b6d('0x1d')]]=_0xb69eb4[_0xcaa830][_0x4b6d('0x1d')];}for(var _0xcaa830=0x0;_0xcaa830<_0x557e2e['length'];_0xcaa830++){if(!_0x542978[_0xcaa830]){_0xb69eb4['push'](_0x4d4cfb(_0x557e2e[_0xcaa830],_0xcaa830,_0x39acd1++,![],_0x19eb74));}}function _0x2e884b(_0xc59839,_0x3ecc5a){return _0xc59839[_0x4b6d('0x13')](function(_0x1dabfe,_0x6b2d6d,_0x561320){return _0x561320[_0x4b6d('0x1a')](function(_0xeedf0){return _0xeedf0[_0x3ecc5a];})['indexOf'](_0x1dabfe[_0x3ecc5a])===_0x6b2d6d;});}var _0x229eac=_0x2e884b(_0xb69eb4,_0x4b6d('0x1d'));_0xb69eb4=[];_0x542978=[];return _0x229eac;}}
+
+const PANOMOMENT = {
+    NONE: 'panomoments.none',
+    FIRST_FRAME_DECODED: 'panomoments.first_frame_decoded',
+    READY: 'panomoments.ready',
+    COMPLETED: 'panomoments.completed',
+};
+
+/**
+ * PanoMoments Panorama
+ * @param {object} identifier PanoMoment identifier
+ */
+function PanoMomentPanorama ( identifier ) {
+
+    Panorama.call( this );
+
+    // PanoMoments
+    this.identifier = identifier;
+    this.PanoMoments = null;
+    this.momentData = null;
+    this.status = PANOMOMENT.NONE;
+
+    // Panolens
+    this.camera = null;
+    this.controls = null;
+    this.defaults = {};
+
+    // Setup Dispatcher
+    this.setupDispatcher();
+
+    // Event Bindings
+    this.viewerUpdateCallback = () => this.updateCallback();
+    this.viewerResetControlLimits = () => this.resetControlLimits( false );
+    this.updateMomentum = ( up, left ) => this.momentumFunction( up, left );
+
+    // Event Listeners
+    this.addEventListener( 'window-resize', () => this.onWindowResize() );
+    this.addEventListener( 'panolens-camera', data => this.onPanolensCamera( data ) );
+    this.addEventListener( 'panolens-controls', data => this.onPanolensControls( data ) );
+    this.addEventListener( 'enter-fade-start', () => this.enter() );
+    this.addEventListener( 'leave-complete', () => this.leave() );
+    this.addEventListener( 'load-start', () => this.disableControl() );
+    this.addEventListener( PANOMOMENT.READY, () => this.enableControl() );
+
+}
+
+PanoMomentPanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
+
+    constructor: PanoMomentPanorama,
+
+    /**
+     * When window is resized
+     * @param {width, height} 
+     */
+    onWindowResize: function() {
+
+        if(this.active) this.resetControlLimits(false);
+
+    },
+
+    /**
+     * When camera reference dispatched
+     * @param {THREE.Camera} camera 
+     */
+    onPanolensCamera: function( { camera } ) {
+
+        Object.assign( this.defaults, { fov: camera.fov } );
+
+        this.camera = camera;
+
+    },
+
+    /**
+     * When control references dispatched
+     * @param {THREE.Object[]} controls 
+     */
+    onPanolensControls: function( { controls } ) {
+
+        const [ { minPolarAngle, maxPolarAngle } ] = controls;
+
+        Object.assign( this.defaults, { minPolarAngle, maxPolarAngle } );
+        
+        this.controls = controls;
+
+    },
+
+    /**
+     * Intercept default dispatcher
+     */
+    setupDispatcher: function() {
+
+        const dispatch = this.dispatchEvent.bind( this );
+        const values = Object.values( PANOMOMENT );
+  
+        this.dispatchEvent = function( event ) {
+ 
+            if ( values.includes( event.type ) ) {
+
+                this.status = event.type;
+
+            }
+
+            dispatch( event );
+
+        };
+
+    },
+
+    /**
+     * Enable Control
+     */
+    enableControl: function() {
+
+        const [ OrbitControls ] = this.controls;
+
+        OrbitControls.enabled = true;
+
+    },
+
+    /**
+     * Disable Control
+     */
+    disableControl: function() {
+
+        const [ OrbitControls ] = this.controls;
+
+        OrbitControls.enabled = false;
+
+    },
+
+    /**
+     * Attch UI Event Listener to Container
+     * @param {boolean} attach 
+     */
+    attachFOVListener: function( attach = true ) {
+
+        const [ OrbitControls ] = this.controls;
+
+        if ( attach ) {
+
+            OrbitControls.addEventListener( 'fov', this.viewerResetControlLimits );
+
+        } else {
+
+            OrbitControls.removeEventListener( 'fov', this.viewerResetControlLimits );
+
+        }
+        
+    },
+
+    /**
+     * Reset Polar Angle and FOV Limits
+     * @param {boolean} reset
+     */
+    resetControlLimits: function( reset = false ) {
+
+        const { momentData } = this;
+
+        if ( !momentData ) return;
+
+        this.resetFOVLimits( reset );
+        this.resetAzimuthAngleLimits( reset );
+
+    },
+
+    /**
+     * Update intial heading based on moment data
+     */
+    updateHeading: function() {
+
+        if ( !this.momentData ) return;
+
+        const { momentData: { start_frame, max_horizontal_fov } } = this;
+
+        // reset center to initial lookat
+        this.dispatchEvent( { type: 'panolens-viewer-handler', method: 'setControlCenter' } );
+
+        // rotate to initial frame center
+        const angle = (start_frame + 180) / 180 * Math.PI;
+        this.dispatchEvent( { type: 'panolens-viewer-handler', method: 'rotateControlLeft', data: angle } );
+
+        // uv offset
+        this.material.uniforms.offset.value.x = (max_horizontal_fov / 360 + .25) % 1;
+
+        // control update
+        this.resetControlLimits( false );
+
+    },
+
+    /**
+     * Load Pano Moment Panorama
+     */
+    load: function () {
+
+        Panorama.prototype.load.call( this, false );
+        
+        const { identifier, renderCallback, readyCallback, loadedCallback } = this;
+
+        this.PanoMoments = new PanoMoments(
+            identifier, 
+            renderCallback.bind( this ), 
+            readyCallback.bind( this ), 
+            loadedCallback.bind( this )
+        );
+
+    },
+
+    /**
+     * On Panolens update callback
+     */
+    updateCallback: function() {
+
+        const { camera, momentData, status } = this;
+
+        if( (status !== PANOMOMENT.FIRST_FRAME_DECODED && status !== PANOMOMENT.READY && status !== PANOMOMENT.COMPLETED) || !momentData ) return;
+        
+        const rotation = Math$1.radToDeg(camera.rotation.y) + 180;
+        const yaw = ((momentData.clockwise ? 90 : -90) - rotation) % 360;
+
+        // textureReady() must be called before render() 
+        if (this.PanoMoments.textureReady()) this.getTexture().needsUpdate = true;
+
+        this.setPanoMomentYaw( yaw );
+        
+    },
+
+    /**
+     * On Pano Moment Render Callback
+     */
+    renderCallback: function (video, momentData) {
+
+        if ( !this.momentData ) {
+
+            this.momentData = momentData;
+
+            const texture = new Texture( video );
+            texture.minFilter = texture.magFilter = LinearFilter;
+            texture.generateMipmaps = false;
+            texture.format = RGBFormat;   
+            this.updateTexture( texture ); 
+
+            this.dispatchEvent( { type: PANOMOMENT.FIRST_FRAME_DECODED } );
+            console.log('PanoMoments First Frame Decoded');
+
+            Panorama.prototype.onLoad.call( this );
+
+        }
+    },
+
+    /**
+     * On Pano Moment Ready Callback
+     */
+    readyCallback: function () {
+
+        this.dispatchEvent( { type: PANOMOMENT.READY } );
+        console.log('PanoMoment Ready');
+    },
+
+    /**
+     * On Pano Moment Loaded Callback
+     */
+    loadedCallback: function () {
+
+        this.dispatchEvent( { type: PANOMOMENT.COMPLETED } );
+        console.log('PanoMoment Download Completed');
+
+    },
+
+    /**
+     * Reset Polar Angle Limit by momentData or default
+     * @param {boolean} reset 
+     */
+    resetAzimuthAngleLimits: function( reset = false ) {
+
+        const { 
+            controls: [ OrbitControls ], 
+            momentData: { contains_parallax, min_vertical_fov }, 
+            defaults: { minPolarAngle, maxPolarAngle }, 
+            camera 
+        } = this;
+
+        if ( !contains_parallax && !reset ) return;
+
+        const delta = Math$1.degToRad( ( 0.95 * min_vertical_fov - camera.fov ) / 2 );
+        const angles = {
+            minPolarAngle: Math.PI / 2 - delta,
+            maxPolarAngle: Math.PI / 2 + delta
+        };
+
+        Object.assign( OrbitControls, reset ? { minPolarAngle, maxPolarAngle } : angles );
+
+    },
+
+    /**
+     * Calculate FOV limit
+     * @param {number} fov 
+     * @param {boolean} horizontal 
+     */
+    calculateFOV: function( fov, horizontal ) {
+
+        const { camera: { aspect } } = this;
+        const factor = horizontal ? aspect : ( 1 / aspect );
+
+        return 2 * Math.atan( Math.tan( fov * Math.PI / 360 ) * factor ) / Math.PI * 180;
+
+    },
+
+    /**
+     * Set FOV Limit by momentData or default
+     * @param {boolean} reset 
+     */
+    resetFOVLimits: function ( reset = false ) {
+
+        const { momentData, camera, controls: [ OrbitControls ], defaults: { fov } } = this;
+        const fovH = this.calculateFOV( camera.fov, true ) ;
+
+        if ( fovH > ( momentData.min_horizontal_fov * .95 ) ) {
+
+            camera.fov = this.calculateFOV( momentData.min_horizontal_fov * .95, false );
+        
+        } else if ( fovH < OrbitControls.minFov ) {
+
+            camera.fov = this.calculateFOV( OrbitControls.minFov, false );
+
+        }
+
+        camera.fov = reset ? fov : camera.fov;
+        camera.updateProjectionMatrix();
+
+    },
+
+    /**
+     * Set PanoMoment yaw
+     * @memberOf PanoMomentPanorama
+     * @param {number} yaw - yaw value from 0 to 360 in degree
+     */
+    setPanoMomentYaw: function (yaw) {
+
+        const { status, momentData, PanoMoments: { render, FrameCount } } = this;
+
+        if( (status !== PANOMOMENT.READY && status !== PANOMOMENT.COMPLETED) || !momentData ) return;
+
+        render((yaw / 360) * FrameCount);
+
+    },
+
+    /**
+     * Enter Panorama
+     */
+    enter: function() {
+
+        this.updateHeading();
+        this.attachFOVListener( true );
+        this.resetControlLimits( false );
+
+        // Add update callback
+        this.dispatchEvent( { 
+            type: 'panolens-viewer-handler', 
+            method: 'addUpdateCallback', 
+            data: this.viewerUpdateCallback
+        });
+
+    },
+
+    /**
+     * Leave Panorama
+     */
+    leave: function() {
+
+        this.attachFOVListener( false );
+        this.resetControlLimits( true );
+
+        // Remove update callback
+        this.dispatchEvent( { 
+            type: 'panolens-viewer-handler', 
+            method: 'removeUpdateCallback', 
+            data: this.viewerUpdateCallback
+        });
+
+    },
+
+    /**
+     * Dispose Panorama
+     */
+    dispose: function() {
+
+        this.leave();
+
+        this.PanoMoments.dispose();
+        this.PanoMoments = null;
+        this.momentData = null;
+
+        Panorama.prototype.dispose.call( this );
+
+    }
+
+} );
+
+/**
  * @classdesc Orbit Controls
  * @constructor
  * @external OrbitControls
@@ -6230,7 +7116,7 @@ function OrbitControls ( object, domElement ) {
 
     // Set to true to disable this control
     this.noPan = true;
-    this.keyPanSpeed = 7.0;	// pixels moved per arrow key push
+    this.keyPanSpeed = 7.0; // pixels moved per arrow key push
 
     // Set to true to automatically rotate around the target
     this.autoRotate = false;
@@ -6244,13 +7130,18 @@ function OrbitControls ( object, domElement ) {
     this.maxPolarAngle = Math.PI; // radians
 
     // Momentum
-  	this.momentumDampingFactor = 0.90;
-  	this.momentumScalingFactor = -0.005;
-  	this.momentumKeydownFactor = 20;
+    this.momentumKeydownFactor = .05;
+    this.speedLimit = 0.04;
+    this.publicSphericalDelta = new Spherical();
+    this.momentum = true;
+    this.momentumFactor = 7.5;
 
-  	// Fov
-  	this.minFov = 30;
-  	this.maxFov = 120;
+    this.enableDamping = true;
+    this.dampingFactor = 0.03;
+
+    // Fov
+    this.minFov = 30;
+    this.maxFov = 120;
 
     /*
      * How far you can orbit horizontally, upper and lower limits.
@@ -6273,45 +7164,38 @@ function OrbitControls ( object, domElement ) {
      * internals
      */
 
-    var scope = this;
+    const scope = this;
 
-    var EPS = 10e-8;
-    var MEPS = 10e-5;
+    const EPS = 10e-8;
 
-    var rotateStart = new Vector2();
-    var rotateEnd = new Vector2();
-    var rotateDelta = new Vector2();
+    const rotateStart = new Vector2();
+    const rotateEnd = new Vector2();
+    const rotateDelta = new Vector2();
 
-    var panStart = new Vector2();
-    var panEnd = new Vector2();
-    var panDelta = new Vector2();
-    var panOffset = new Vector3();
+    const panStart = new Vector2();
+    const panEnd = new Vector2();
+    const panDelta = new Vector2();
+    const panOffset = new Vector3();
 
-    var offset = new Vector3();
+    const offset = new Vector3();
 
-    var dollyStart = new Vector2();
-    var dollyEnd = new Vector2();
-    var dollyDelta = new Vector2();
+    const dollyStart = new Vector2();
+    const dollyEnd = new Vector2();
+    const dollyDelta = new Vector2();
 
-    var theta = 0;
-    var phi = 0;
-    var phiDelta = 0;
-    var thetaDelta = 0;
-    var scale = 1;
-    var pan = new Vector3();
+    let theta = 0;
+    let phi = 0;
+    let phiDelta = 0;
+    let thetaDelta = 0;
+    let scale = 1;
+    const pan = new Vector3();
 
-    var lastPosition = new Vector3();
-    var lastQuaternion = new Quaternion();
+    const lastPosition = new Vector3();
+    const lastQuaternion = new Quaternion();
 
-    var momentumLeft = 0, momentumUp = 0;
-    var eventPrevious;
-    var momentumOn = false;
+    const STATE = { NONE: -1, ROTATE: 0, DOLLY: 1, PAN: 2, TOUCH_ROTATE: 3, TOUCH_DOLLY: 4, TOUCH_PAN: 5 };
 
-    var keyUp, keyBottom, keyLeft, keyRight;
-
-    var STATE = { NONE: -1, ROTATE: 0, DOLLY: 1, PAN: 2, TOUCH_ROTATE: 3, TOUCH_DOLLY: 4, TOUCH_PAN: 5 };
-
-    var state = STATE.NONE;
+    let state = STATE.NONE;
 
     // for reset
 
@@ -6321,14 +7205,15 @@ function OrbitControls ( object, domElement ) {
 
     // so camera.up is the orbit axis
 
-    var quat = new Quaternion().setFromUnitVectors( object.up, new Vector3( 0, 1, 0 ) );
-    var quatInverse = quat.clone().inverse();
+    const quat = new Quaternion().setFromUnitVectors( object.up, new Vector3( 0, 1, 0 ) );
+    const quatInverse = quat.clone().inverse();
 
     // events
 
-    var changeEvent = { type: 'change' };
-    var startEvent = { type: 'start' };
-    var endEvent = { type: 'end' };
+    const changeEvent = { type: 'change' };
+    const startEvent = { type: 'start' };
+    const endEvent = { type: 'end' };
+    const fovEvent = { type: 'fov' };
 
     this.setLastQuaternion = function ( quaternion ) {
         lastQuaternion.copy( quaternion );
@@ -6347,8 +7232,8 @@ function OrbitControls ( object, domElement ) {
 
         }
 
+        angle = this.momentum && !this.autoRotate ? angle /= this.momentumFactor : angle; 
         thetaDelta -= angle;
-
 
     };
 
@@ -6360,14 +7245,33 @@ function OrbitControls ( object, domElement ) {
 
         }
 
+        angle = this.momentum && !this.autoRotate ? angle /= this.momentumFactor : angle; 
         phiDelta -= angle;
+
+    };
+
+    this.rotateLeftStatic = function ( angle ) {
+
+        this.enableDamping = false;
+        thetaDelta -= angle;
+        this.update();
+        this.enableDamping = true;
+
+    };
+
+    this.rotateUpStatic = function ( angle ) {
+
+        this.enableDamping = false;
+        phiDelta -= angle;
+        this.update();
+        this.enableDamping = true;
 
     };
 
     // pass in distance in world space to move left
     this.panLeft = function ( distance ) {
 
-        var te = this.object.matrix.elements;
+        const te = this.object.matrix.elements;
 
         // get X column of matrix
         panOffset.set( te[ 0 ], te[ 1 ], te[ 2 ] );
@@ -6380,7 +7284,7 @@ function OrbitControls ( object, domElement ) {
     // pass in distance in world space to move up
     this.panUp = function ( distance ) {
 
-        var te = this.object.matrix.elements;
+        const te = this.object.matrix.elements;
 
         // get Y column of matrix
         panOffset.set( te[ 4 ], te[ 5 ], te[ 6 ] );
@@ -6396,14 +7300,14 @@ function OrbitControls ( object, domElement ) {
      */
     this.pan = function ( deltaX, deltaY ) {
 
-        var element = scope.domElement === document ? scope.domElement.body : scope.domElement;
+        const element = scope.domElement === document ? scope.domElement.body : scope.domElement;
 
         if ( scope.object instanceof PerspectiveCamera ) {
 
             // perspective
-            var position = scope.object.position;
-            var offset = position.clone().sub( scope.target );
-            var targetDistance = offset.length();
+            const position = scope.object.position;
+            const offset = position.clone().sub( scope.target );
+            let targetDistance = offset.length();
 
             // half of the fov is center to top of screen
             targetDistance *= Math.tan( ( scope.object.fov / 2 ) * Math.PI / 180.0 );
@@ -6424,24 +7328,6 @@ function OrbitControls ( object, domElement ) {
             console.warn( 'WARNING: OrbitControls.js encountered an unknown camera type - pan disabled.' );
 
         }
-
-    };
-
-    this.momentum = function(){
-		
-        if ( !momentumOn ) return;
-
-        if ( Math.abs( momentumLeft ) < MEPS && Math.abs( momentumUp ) < MEPS ) { 
-
-            momentumOn = false; 
-            return;
-        }
-
-        momentumUp   *= this.momentumDampingFactor;
-        momentumLeft *= this.momentumDampingFactor;
-
-        thetaDelta -= this.momentumScalingFactor * momentumLeft;
-        phiDelta   -= this.momentumScalingFactor * momentumUp;
 
     };
 
@@ -6499,7 +7385,7 @@ function OrbitControls ( object, domElement ) {
 
     this.update = function ( ignoreUpdate ) {
 
-        var position = this.object.position;
+        const position = this.object.position;
 
         offset.copy( position ).sub( this.target );
 
@@ -6520,10 +7406,16 @@ function OrbitControls ( object, domElement ) {
 
         }
 
-        this.momentum();
-
+        if (this.enableDamping === true ) {
+            thetaDelta = Math$1.clamp(thetaDelta, -this.speedLimit, this.speedLimit);
+            phiDelta = Math$1.clamp(phiDelta, -this.speedLimit, this.speedLimit);
+        }
+        
         theta += thetaDelta;
         phi += phiDelta;
+
+        // DeviceOrientationControl support
+        scope.publicSphericalDelta.data = { theta }; 
 
         // restrict theta to be between desired limits
         theta = Math.max( this.minAzimuthAngle, Math.min( this.maxAzimuthAngle, theta ) );
@@ -6534,14 +7426,14 @@ function OrbitControls ( object, domElement ) {
         // restrict phi to be betwee EPS and PI-EPS
         phi = Math.max( EPS, Math.min( Math.PI - EPS, phi ) );
 
-        var radius = offset.length() * scale;
+        let radius = offset.length() * scale;
 
         // restrict radius to be between desired limits
         radius = Math.max( this.minDistance, Math.min( this.maxDistance, radius ) );
 
         // move target to panned location
         this.target.add( pan );
-
+        
         offset.x = radius * Math.sin( phi ) * Math.sin( theta );
         offset.y = radius * Math.cos( phi );
         offset.z = radius * Math.sin( phi ) * Math.cos( theta );
@@ -6553,8 +7445,18 @@ function OrbitControls ( object, domElement ) {
 
         this.object.lookAt( this.target );
 
-        thetaDelta = 0;
-        phiDelta = 0;
+        if ( !this.autoRotate && this.enableDamping === true && ((this.momentum && (state === STATE.ROTATE || state === STATE.TOUCH_ROTATE)) || state === STATE.NONE ) ) {
+
+            thetaDelta *= ( 1 - this.dampingFactor );
+            phiDelta *= ( 1 - this.dampingFactor );
+
+        } else {
+
+            thetaDelta = 0;
+            phiDelta = 0;
+
+        }
+
         scale = 1;
         pan.set( 0, 0, 0 );
 
@@ -6564,7 +7466,7 @@ function OrbitControls ( object, domElement ) {
          * using small-angle approximation cos(x/2) = 1 - x^2 / 8
          */
         if ( lastPosition.distanceToSquared( this.object.position ) > EPS
-		    || 8 * (1 - lastQuaternion.dot(this.object.quaternion)) > EPS ) {
+            || 8 * (1 - lastQuaternion.dot(this.object.quaternion)) > EPS ) {
 
             if ( ignoreUpdate !== true ) { this.dispatchEvent( changeEvent ); }
 
@@ -6574,7 +7476,6 @@ function OrbitControls ( object, domElement ) {
         }
 
     };
-
 
     this.reset = function () {
 
@@ -6617,10 +7518,6 @@ function OrbitControls ( object, domElement ) {
 
     function onMouseDown( event ) {
 
-        momentumOn = false;
-
-   		momentumLeft = momentumUp = 0;
-
         if ( scope.enabled === false ) return;
         event.preventDefault();
 
@@ -6653,8 +7550,6 @@ function OrbitControls ( object, domElement ) {
             scope.dispatchEvent( startEvent );
         }
 
-        scope.update();
-
     }
 
     function onMouseMove( event ) {
@@ -6663,7 +7558,7 @@ function OrbitControls ( object, domElement ) {
 
         event.preventDefault();
 
-        var element = scope.domElement === document ? scope.domElement.body : scope.domElement;
+        const element = scope.domElement === document ? scope.domElement.body : scope.domElement;
 
         if ( state === STATE.ROTATE ) {
 
@@ -6672,20 +7567,19 @@ function OrbitControls ( object, domElement ) {
             rotateEnd.set( event.clientX, event.clientY );
             rotateDelta.subVectors( rotateEnd, rotateStart );
 
+            if (rotateStart.x == 0 && rotateStart.y == 0) {
+                rotateStart.set(rotateEnd.x, rotateEnd.y);
+                rotateDelta.subVectors( rotateEnd, rotateStart );
+                return;
+            }
+
             // rotating across whole screen goes 360 degrees around
-            scope.rotateLeft( 2 * Math.PI * rotateDelta.x / element.clientWidth * scope.rotateSpeed );
+            scope.rotateLeft( 2 * Math.PI * rotateDelta.x / element.clientHeight * scope.rotateSpeed );
 
             // rotating up and down along whole screen attempts to go 360, but limited to 180
             scope.rotateUp( 2 * Math.PI * rotateDelta.y / element.clientHeight * scope.rotateSpeed );
 
             rotateStart.copy( rotateEnd );
-
-            if( eventPrevious ){
-                momentumLeft = event.clientX - eventPrevious.clientX;
-                momentumUp = event.clientY - eventPrevious.clientY;
-            }
-
-            eventPrevious = event;
 
         } else if ( state === STATE.DOLLY ) {
 
@@ -6719,15 +7613,9 @@ function OrbitControls ( object, domElement ) {
 
         }
 
-        if ( state !== STATE.NONE ) scope.update();
-
     }
 
     function onMouseUp( /* event */ ) {
-
-        momentumOn = true;
-
-        eventPrevious = undefined;
 
         if ( scope.enabled === false ) return;
 
@@ -6745,7 +7633,7 @@ function OrbitControls ( object, domElement ) {
         event.preventDefault();
         event.stopPropagation();
 
-        var delta = 0;
+        let delta = 0;
 
         if ( event.wheelDelta !== undefined ) { // WebKit / Opera / Explorer 9
 
@@ -6775,10 +7663,10 @@ function OrbitControls ( object, domElement ) {
 
         }
 
-        scope.update();
         scope.dispatchEvent( changeEvent );
         scope.dispatchEvent( startEvent );
         scope.dispatchEvent( endEvent );
+        scope.dispatchEvent( fovEvent );
 
     }
 
@@ -6787,19 +7675,15 @@ function OrbitControls ( object, domElement ) {
         switch ( event.keyCode ) {
 
         case scope.keys.UP:
-            keyUp = false;
             break;
 
         case scope.keys.BOTTOM:
-            keyBottom = false;
             break;
 
         case scope.keys.LEFT:
-            keyLeft = false;
             break;
 
         case scope.keys.RIGHT:
-            keyRight = false;
             break;
 
         }
@@ -6808,36 +7692,27 @@ function OrbitControls ( object, domElement ) {
 
     function onKeyDown( event ) {
 
-        if ( scope.enabled === false || scope.noKeys === true || scope.noRotate === true ) return;
+        if ( scope.enabled === false || scope.noKeys === true || scope.noRotate === true || scope.autoRotate) return;
+
+        const updatedMomentumKeydownFactor = scope.momentum && !scope.autoRotate ? scope.momentumKeydownFactor * scope.momentumFactor : scope.momentumKeydownFactor; // Handle difference in necessary rotateSpeed constants.
 
         switch ( event.keyCode ) {
 
         case scope.keys.UP:
-            keyUp = true;
+            scope.rotateUp( scope.rotateSpeed * updatedMomentumKeydownFactor );
             break;
 
         case scope.keys.BOTTOM:
-            keyBottom = true;
+            scope.rotateUp( - scope.rotateSpeed * updatedMomentumKeydownFactor );
             break;
 
         case scope.keys.LEFT:
-            keyLeft = true;
+            scope.rotateLeft( scope.rotateSpeed * updatedMomentumKeydownFactor );
             break;
 
         case scope.keys.RIGHT:
-            keyRight = true;
+            scope.rotateLeft( - scope.rotateSpeed * updatedMomentumKeydownFactor );
             break;
-
-        }
-
-        if (keyUp || keyBottom || keyLeft || keyRight) {
-
-            momentumOn = true;
-
-            if (keyUp) momentumUp = - scope.rotateSpeed * scope.momentumKeydownFactor;
-            if (keyBottom) momentumUp = scope.rotateSpeed * scope.momentumKeydownFactor;
-            if (keyLeft) momentumLeft = - scope.rotateSpeed * scope.momentumKeydownFactor;
-            if (keyRight) momentumLeft = scope.rotateSpeed * scope.momentumKeydownFactor;
 
         }
 
@@ -6845,15 +7720,12 @@ function OrbitControls ( object, domElement ) {
 
     function touchstart( event ) {
 
-        momentumOn = false;
-
-        momentumLeft = momentumUp = 0;
 
         if ( scope.enabled === false ) return;
 
         switch ( event.touches.length ) {
 
-        case 1:	// one-fingered touch: rotate
+        case 1: // one-fingered touch: rotate
 
             if ( scope.noRotate === true ) return;
 
@@ -6862,15 +7734,15 @@ function OrbitControls ( object, domElement ) {
             rotateStart.set( event.touches[ 0 ].pageX, event.touches[ 0 ].pageY );
             break;
 
-        case 2:	// two-fingered touch: dolly
+        case 2: // two-fingered touch: dolly
 
             if ( scope.noZoom === true ) return;
 
             state = STATE.TOUCH_DOLLY;
 
-            var dx = event.touches[ 0 ].pageX - event.touches[ 1 ].pageX;
-            var dy = event.touches[ 0 ].pageY - event.touches[ 1 ].pageY;
-            var distance = Math.sqrt( dx * dx + dy * dy );
+            const dx = event.touches[ 0 ].pageX - event.touches[ 1 ].pageX;
+            const dy = event.touches[ 0 ].pageY - event.touches[ 1 ].pageY;
+            const distance = Math.sqrt( dx * dx + dy * dy );
 
             dollyStart.set( 0, distance );
 
@@ -6902,7 +7774,7 @@ function OrbitControls ( object, domElement ) {
         event.preventDefault();
         event.stopPropagation();
 
-        var element = scope.domElement === document ? scope.domElement.body : scope.domElement;
+        const element = scope.domElement === document ? scope.domElement.body : scope.domElement;
 
         switch ( event.touches.length ) {
 
@@ -6915,23 +7787,12 @@ function OrbitControls ( object, domElement ) {
             rotateDelta.subVectors( rotateEnd, rotateStart );
 
             // rotating across whole screen goes 360 degrees around
-            scope.rotateLeft( 2 * Math.PI * rotateDelta.x / element.clientWidth * scope.rotateSpeed );
+            scope.rotateLeft( 2 * Math.PI * rotateDelta.x / element.clientHeight * scope.rotateSpeed );
             // rotating up and down along whole screen attempts to go 360, but limited to 180
             scope.rotateUp( 2 * Math.PI * rotateDelta.y / element.clientHeight * scope.rotateSpeed );
 
             rotateStart.copy( rotateEnd );
 
-            if( eventPrevious ){
-                momentumLeft = event.touches[ 0 ].pageX - eventPrevious.pageX;
-                momentumUp = event.touches[ 0 ].pageY - eventPrevious.pageY;
-            }
-
-            eventPrevious = {
-                pageX: event.touches[ 0 ].pageX,
-                pageY: event.touches[ 0 ].pageY,
-            };
-
-            scope.update();
             break;
 
         case 2: // two-fingered touch: dolly
@@ -6939,9 +7800,9 @@ function OrbitControls ( object, domElement ) {
             if ( scope.noZoom === true ) return;
             if ( state !== STATE.TOUCH_DOLLY ) return;
 
-            var dx = event.touches[ 0 ].pageX - event.touches[ 1 ].pageX;
-            var dy = event.touches[ 0 ].pageY - event.touches[ 1 ].pageY;
-            var distance = Math.sqrt( dx * dx + dy * dy );
+            const dx = event.touches[ 0 ].pageX - event.touches[ 1 ].pageX;
+            const dy = event.touches[ 0 ].pageY - event.touches[ 1 ].pageY;
+            const distance = Math.sqrt( dx * dx + dy * dy );
 
             dollyEnd.set( 0, distance );
             dollyDelta.subVectors( dollyEnd, dollyStart );
@@ -6964,8 +7825,8 @@ function OrbitControls ( object, domElement ) {
 
             dollyStart.copy( dollyEnd );
 
-            scope.update();
             scope.dispatchEvent( changeEvent );
+            scope.dispatchEvent( fovEvent );
             break;
 
         case 3: // three-fingered touch: pan
@@ -6980,7 +7841,6 @@ function OrbitControls ( object, domElement ) {
 
             panStart.copy( panEnd );
 
-            scope.update();
             break;
 
         default:
@@ -6992,10 +7852,6 @@ function OrbitControls ( object, domElement ) {
     }
 
     function touchend( /* event */ ) {
-
-        momentumOn = true;
-
-        eventPrevious = undefined;
 
         if ( scope.enabled === false ) return;
 
@@ -7045,178 +7901,164 @@ OrbitControls.prototype = Object.assign( Object.create( EventDispatcher.prototyp
  * @classdesc Device Orientation Control
  * @constructor
  * @external DeviceOrientationControls
- * @param {THREE.Camera} camera 
- * @param {HTMLElement} domElement 
+ * @param {THREE.Object} object 
  */
-function DeviceOrientationControls ( camera, domElement ) {
+function DeviceOrientationControls ( object ) {
 
-    var scope = this;
-    var changeEvent = { type: 'change' };
+    const scope = this;
 
-    var rotY = 0;
-    var rotX = 0;
-    var tempX = 0;
-    var tempY = 0;
-
-    this.camera = camera;
-    this.camera.rotation.reorder( 'YXZ' );
-    this.domElement = ( domElement !== undefined ) ? domElement : document;
+    this.object = object;
+    this.object.rotation.reorder( 'YXZ' );
 
     this.enabled = true;
 
-    this.deviceOrientation = {};
+    this.deviceOrientation = null;
     this.screenOrientation = 0;
 
-    this.alpha = 0;
-    this.alphaOffsetAngle = 0;
+    this.alphaOffset = 0; // radians
+    this.initialOffset = null;
 
+    const onDeviceOrientationChangeEvent = function ( { alpha, beta, gamma } ) {
 
-    var onDeviceOrientationChangeEvent = function( event ) {
+        if( scope.initialOffset === null ) {
+            scope.initialOffset = alpha;
+        }
 
-        scope.deviceOrientation = event;
+        alpha = alpha - scope.initialOffset;
+
+        if(alpha < 0) alpha += 360;
+
+        scope.deviceOrientation = { alpha, beta, gamma };
 
     };
 
-    var onScreenOrientationChangeEvent = function() {
+    const onScreenOrientationChangeEvent = function () {
 
         scope.screenOrientation = window.orientation || 0;
 
     };
 
-    var onTouchStartEvent = function (event) {
+    const onRegisterEvent = function() {
 
-        event.preventDefault();
-        event.stopPropagation();
+        window.addEventListener( 'orientationchange', onScreenOrientationChangeEvent, false );
+        window.addEventListener( 'deviceorientation', onDeviceOrientationChangeEvent, false );
 
-        tempX = event.touches[ 0 ].pageX;
-        tempY = event.touches[ 0 ].pageY;
+    }.bind( this );
 
-    };
-
-    var onTouchMoveEvent = function (event) {
-
-        event.preventDefault();
-        event.stopPropagation();
-
-        rotY += Math$1.degToRad( ( event.touches[ 0 ].pageX - tempX ) / 4 );
-        rotX += Math$1.degToRad( ( tempY - event.touches[ 0 ].pageY ) / 4 );
-
-        scope.updateAlphaOffsetAngle( rotY );
-
-        tempX = event.touches[ 0 ].pageX;
-        tempY = event.touches[ 0 ].pageY;
-
-    };
 
     // The angles alpha, beta and gamma form a set of intrinsic Tait-Bryan angles of type Z-X'-Y''
 
-    var setCameraQuaternion = function( quaternion, alpha, beta, gamma, orient ) {
+    const setObjectQuaternion = function () {
 
-        var zee = new Vector3( 0, 0, 1 );
+        const zee = new Vector3( 0, 0, 1 );
 
-        var euler = new Euler();
+        const euler = new Euler();
 
-        var q0 = new Quaternion();
+        const q0 = new Quaternion();
 
-        var q1 = new Quaternion( - Math.sqrt( 0.5 ), 0, 0, Math.sqrt( 0.5 ) ); // - PI/2 around the x-axis
+        const q1 = new Quaternion( - Math.sqrt( 0.5 ), 0, 0, Math.sqrt( 0.5 ) ); // - PI/2 around the x-axis
 
-        var vectorFingerY;
-        var fingerQY = new Quaternion();
-        var fingerQX = new Quaternion();
+        return function ( quaternion, alpha, beta, gamma, orient ) {
 
-        if ( scope.screenOrientation == 0 ) {
+            euler.set( beta, alpha, - gamma, 'YXZ' ); // 'ZXY' for the device, but 'YXZ' for us
 
-            vectorFingerY = new Vector3( 1, 0, 0 );
-            fingerQY.setFromAxisAngle( vectorFingerY, -rotX );
+            quaternion.setFromEuler( euler ); // orient the device
 
-        } else if ( scope.screenOrientation == 180 ) {
+            quaternion.multiply( q1 ); // camera looks out the back of the device, not the top
 
-            vectorFingerY = new Vector3( 1, 0, 0 );
-            fingerQY.setFromAxisAngle( vectorFingerY, rotX );
+            quaternion.multiply( q0.setFromAxisAngle( zee, - orient ) ); // adjust for screen orientation
 
-        } else if ( scope.screenOrientation == 90 ) {
+        };
 
-            vectorFingerY = new Vector3( 0, 1, 0 );
-            fingerQY.setFromAxisAngle( vectorFingerY, rotX );
+    }();
 
-        } else if ( scope.screenOrientation == - 90) {
-
-            vectorFingerY = new Vector3( 0, 1, 0 );
-            fingerQY.setFromAxisAngle( vectorFingerY, -rotX );
-
-        }
-
-        q1.multiply( fingerQY );
-        q1.multiply( fingerQX );
-
-        euler.set( beta, alpha, - gamma, 'YXZ' ); // 'ZXY' for the device, but 'YXZ' for us
-
-        quaternion.setFromEuler( euler ); // orient the device
-
-        quaternion.multiply( q1 ); // camera looks out the back of the device, not the top
-
-        quaternion.multiply( q0.setFromAxisAngle( zee, - orient ) ); // adjust for screen orientation
-
-    };
-
-    this.connect = function() {
+    this.connect = function () {
 
         onScreenOrientationChangeEvent(); // run once on load
 
-        window.addEventListener( 'orientationchange', onScreenOrientationChangeEvent, { passive: true } );
-        window.addEventListener( 'deviceorientation', onDeviceOrientationChangeEvent, { passive: true } );
-        window.addEventListener( 'deviceorientation', this.update.bind( this ), { passive: true } );
+        // iOS 13+
 
-        scope.domElement.addEventListener( 'touchstart', onTouchStartEvent, { passive: false } );
-        scope.domElement.addEventListener( 'touchmove', onTouchMoveEvent, { passive: false } );
+        if ( window.DeviceOrientationEvent !== undefined && typeof window.DeviceOrientationEvent.requestPermission === 'function' ) {
+
+            window.DeviceOrientationEvent.requestPermission().then( function ( response ) {
+
+                if ( response == 'granted' ) {
+
+                    onRegisterEvent();
+
+                }
+
+            } ).catch( function ( error ) {
+
+                console.error( 'THREE.DeviceOrientationControls: Unable to use DeviceOrientation API:', error );
+
+            } );
+
+        } else {
+
+            onRegisterEvent();
+
+        }
 
         scope.enabled = true;
 
     };
 
-    this.disconnect = function() {
+    this.disconnect = function () {
 
         window.removeEventListener( 'orientationchange', onScreenOrientationChangeEvent, false );
         window.removeEventListener( 'deviceorientation', onDeviceOrientationChangeEvent, false );
-        window.removeEventListener( 'deviceorientation', this.update.bind( this ), false );
-
-        scope.domElement.removeEventListener( 'touchstart', onTouchStartEvent, false );
-        scope.domElement.removeEventListener( 'touchmove', onTouchMoveEvent, false );
 
         scope.enabled = false;
-
+        scope.deviceOrientation = null;
+        scope.initialOffset = null;
+        
     };
 
-    this.update = function( ignoreUpdate ) {
+    this.update = function ({ theta = 0 } = { theta: 0 }) {
 
         if ( scope.enabled === false ) return;
 
-        var alpha = scope.deviceOrientation.alpha ? Math$1.degToRad( scope.deviceOrientation.alpha ) + scope.alphaOffsetAngle : 0; // Z
-        var beta = scope.deviceOrientation.beta ? Math$1.degToRad( scope.deviceOrientation.beta ) : 0; // X'
-        var gamma = scope.deviceOrientation.gamma ? Math$1.degToRad( scope.deviceOrientation.gamma ) : 0; // Y''
-        var orient = scope.screenOrientation ? Math$1.degToRad( scope.screenOrientation ) : 0; // O
+        const device = scope.deviceOrientation;
 
-        setCameraQuaternion( scope.camera.quaternion, alpha, beta, gamma, orient );
-        scope.alpha = alpha;
+        if ( device ) {
 
-        if ( ignoreUpdate !== true ) { scope.dispatchEvent( changeEvent ); }
+            const alpha = device.alpha ? Math$1.degToRad( device.alpha ) + scope.alphaOffset : 0; // Z
+            
+            const beta = device.beta ? Math$1.degToRad( device.beta ) : 0; // X'
 
-    };
+            const gamma = device.gamma ? Math$1.degToRad( device.gamma ) : 0; // Y''
 
-    this.updateAlphaOffsetAngle = function( angle ) {
+            const orient = scope.screenOrientation ? Math$1.degToRad( scope.screenOrientation ) : 0; // O
 
-        this.alphaOffsetAngle = angle;
-        this.update();
+            setObjectQuaternion( scope.object.quaternion, alpha + theta, beta, gamma, orient );
 
-    };
+        }
 
-    this.dispose = function() {
-
-        this.disconnect();
 
     };
 
-    this.connect();
+    this.dispose = function () {
+
+        scope.disconnect();
+
+    };
+
+    this.getAlpha = function() {
+
+        const { deviceOrientation: device } = scope;
+
+        return device && device.alpha ? Math$1.degToRad( device.alpha ) + scope.alphaOffset : 0;
+
+    };
+
+    this.getBeta = function() {
+
+        const { deviceOrientation: device } = scope;
+
+        return device && device.beta ? Math$1.degToRad( device.beta ) : 0;
+
+    };
 
 }
 DeviceOrientationControls.prototype = Object.assign( Object.create( EventDispatcher.prototype), {
@@ -7233,16 +8075,16 @@ DeviceOrientationControls.prototype = Object.assign( Object.create( EventDispatc
  */
 function CardboardEffect ( renderer ) {
 
-    var _camera = new OrthographicCamera( - 1, 1, 1, - 1, 0, 1 );
+    const _camera = new OrthographicCamera( - 1, 1, 1, - 1, 0, 1 );
 
-    var _scene = new Scene();
+    const _scene = new Scene();
 
-    var _stereo = new StereoCamera();
+    const _stereo = new StereoCamera();
     _stereo.aspect = 0.5;
 
-    var _params = { minFilter: LinearFilter, magFilter: NearestFilter, format: RGBAFormat };
+    const _params = { minFilter: LinearFilter, magFilter: NearestFilter, format: RGBAFormat };
 
-    var _renderTarget = new WebGLRenderTarget( 512, 512, _params );
+    const _renderTarget = new WebGLRenderTarget( 512, 512, _params );
     _renderTarget.scissorTest = true;
     _renderTarget.texture.generateMipmaps = false;
 
@@ -7251,37 +8093,37 @@ function CardboardEffect ( renderer ) {
      * https://github.com/borismus/webvr-boilerplate/blob/master/src/distortion/barrel-distortion-fragment.js
      */
 
-    var distortion = new Vector2( 0.441, 0.156 );
+    const distortion = new Vector2( 0.441, 0.156 );
 
-    var geometry = new PlaneBufferGeometry( 1, 1, 10, 20 ).removeAttribute( 'normal' ).toNonIndexed();
+    const geometry = new PlaneBufferGeometry( 1, 1, 10, 20 ).removeAttribute( 'normal' ).toNonIndexed();
 
-    var positions = geometry.attributes.position.array;
-    var uvs = geometry.attributes.uv.array;
+    const positions = geometry.attributes.position.array;
+    const uvs = geometry.attributes.uv.array;
 
     // duplicate
     geometry.attributes.position.count *= 2;
     geometry.attributes.uv.count *= 2;
 
-    var positions2 = new Float32Array( positions.length * 2 );
+    const positions2 = new Float32Array( positions.length * 2 );
     positions2.set( positions );
     positions2.set( positions, positions.length );
 
-    var uvs2 = new Float32Array( uvs.length * 2 );
+    const uvs2 = new Float32Array( uvs.length * 2 );
     uvs2.set( uvs );
     uvs2.set( uvs, uvs.length );
 
-    var vector = new Vector2();
-    var length = positions.length / 3;
+    const vector = new Vector2();
+    const length = positions.length / 3;
 
-    for ( var i = 0, l = positions2.length / 3; i < l; i ++ ) {
+    for ( let i = 0, l = positions2.length / 3; i < l; i ++ ) {
 
         vector.x = positions2[ i * 3 + 0 ];
         vector.y = positions2[ i * 3 + 1 ];
 
-        var dot = vector.dot( vector );
-        var scalar = 1.5 + ( distortion.x + distortion.y * dot ) * dot;
+        const dot = vector.dot( vector );
+        const scalar = 1.5 + ( distortion.x + distortion.y * dot ) * dot;
 
-        var offset = i < length ? 0 : 1;
+        const offset = i < length ? 0 : 1;
 
         positions2[ i * 3 + 0 ] = ( vector.x / scalar ) * 1.5 - 0.5 + offset;
         positions2[ i * 3 + 1 ] = ( vector.y / scalar ) * 3.0;
@@ -7295,34 +8137,46 @@ function CardboardEffect ( renderer ) {
 
     //
 
-    var material = new MeshBasicMaterial( { map: _renderTarget.texture } );
-    var mesh = new Mesh( geometry, material );
+    const material = new MeshBasicMaterial( { map: _renderTarget.texture } );
+    const mesh = new Mesh( geometry, material );
     _scene.add( mesh );
 
     //
+
+    this.setEyeSeparation = function ( eyeSep ) {
+
+        _stereo.eyeSep = eyeSep;
+
+    };
 
     this.setSize = function ( width, height ) {
 
         renderer.setSize( width, height );
 
-        var pixelRatio = renderer.getPixelRatio();
+        const pixelRatio = renderer.getPixelRatio();
 
         _renderTarget.setSize( width * pixelRatio, height * pixelRatio );
 
     };
 
-    this.render = function ( scene, camera ) {
+    this.render = function ( scene, camera, panorama ) {
+
+        const stereoEnabled = panorama instanceof StereoImagePanorama || panorama instanceof StereoVideoPanorama;
 
         scene.updateMatrixWorld();
+
+        if ( stereoEnabled ) this.setEyeSeparation( panorama.stereo.eyeSep );
 
         if ( camera.parent === null ) camera.updateMatrixWorld();
 
         _stereo.update( camera );
 
-        var width = _renderTarget.width / 2;
-        var height = _renderTarget.height;
+        const width = _renderTarget.width / 2;
+        const height = _renderTarget.height;
 
         if ( renderer.autoClear ) renderer.clear();
+
+        if ( stereoEnabled ) panorama.updateTextureToLeft();
 
         _renderTarget.scissor.set( 0, 0, width, height );
         _renderTarget.viewport.set( 0, 0, width, height );
@@ -7330,6 +8184,8 @@ function CardboardEffect ( renderer ) {
         renderer.render( scene, _stereo.cameraL );
 
         renderer.clearDepth();
+
+        if ( stereoEnabled ) panorama.updateTextureToRight();
 
         _renderTarget.scissor.set( width, 0, width, height );
         _renderTarget.viewport.set( width, 0, width, height );
@@ -7352,9 +8208,9 @@ function CardboardEffect ( renderer ) {
  */
 const StereoEffect = function ( renderer ) {
 
-    var _stereo = new StereoCamera();
+    const _stereo = new StereoCamera();
     _stereo.aspect = 0.5;
-    var size = new Vector2();
+    const size = new Vector2();
 
     this.setEyeSeparation = function ( eyeSep ) {
 
@@ -7368,11 +8224,15 @@ const StereoEffect = function ( renderer ) {
 
     };
 
-    this.render = function ( scene, camera ) {
+    this.render = function ( scene, camera, panorama ) {
+
+        const stereoEnabled = panorama instanceof StereoImagePanorama || panorama instanceof StereoVideoPanorama;
 
         scene.updateMatrixWorld();
 
         if ( camera.parent === null ) camera.updateMatrixWorld();
+        
+        if ( stereoEnabled ) this.setEyeSeparation( panorama.stereo.eyeSep );
 
         _stereo.update( camera );
 
@@ -7381,15 +8241,21 @@ const StereoEffect = function ( renderer ) {
         if ( renderer.autoClear ) renderer.clear();
         renderer.setScissorTest( true );
 
+        if ( stereoEnabled ) panorama.updateTextureToLeft();
+
         renderer.setScissor( 0, 0, size.width / 2, size.height );
         renderer.setViewport( 0, 0, size.width / 2, size.height );
         renderer.render( scene, _stereo.cameraL );
+
+        if ( stereoEnabled ) panorama.updateTextureToRight();
 
         renderer.setScissor( size.width / 2, 0, size.width / 2, size.height );
         renderer.setViewport( size.width / 2, 0, size.width / 2, size.height );
         renderer.render( scene, _stereo.cameraR );
 
         renderer.setScissorTest( false );
+
+        if ( stereoEnabled ) panorama.updateTextureToLeft();
 
     };
 
@@ -7410,215 +8276,222 @@ const StereoEffect = function ( renderer ) {
  * @param {boolean} [options.horizontalView=false] - Allow only horizontal camera control
  * @param {number}  [options.clickTolerance=10] - Distance tolerance to tigger click / tap event
  * @param {number}  [options.cameraFov=60] - Camera field of view value
- * @param {boolean} [options.reverseDragging=false] - Reverse dragging direction
  * @param {boolean} [options.enableReticle=false] - Enable reticle for mouseless interaction other than VR mode
  * @param {number}  [options.dwellTime=1500] - Dwell time for reticle selection in ms
  * @param {boolean} [options.autoReticleSelect=true] - Auto select a clickable target after dwellTime
  * @param {boolean} [options.viewIndicator=false] - Adds an angle view indicator in upper left corner
  * @param {number}  [options.indicatorSize=30] - Size of View Indicator
- * @param {string}  [options.output='none'] - Whether and where to output raycast position. Could be 'console' or 'overlay'
+ * @param {string}  [options.output=null] - Whether and where to output raycast position. Could be 'console' or 'overlay'
  * @param {boolean} [options.autoRotate=false] - Auto rotate
  * @param {number}  [options.autoRotateSpeed=2.0] - Auto rotate speed as in degree per second. Positive is counter-clockwise and negative is clockwise.
  * @param {number}  [options.autoRotateActivationDuration=5000] - Duration before auto rotatation when no user interactivity in ms
+ * @param {THREE.Vector3} [options.initialLookAt=new THREE.Vector3( 0, 0, -Number.MAX_SAFE_INTEGER )] - Initial looking at vector
+ * @param {boolean} [options.momentum=true] - Use momentum even during mouse/touch move
+ * @param {number} [options.rotateSpeed=-1.0] - Drag Rotation Speed
+ * @param {number} [options.dampingFactor=.1] - Damping factor
  */
-function Viewer ( options ) {
+function Viewer ( options = {} ) {
 
-    let container;
+    this.options = Object.assign( {
 
-    options = options || {};
-    options.controlBar = options.controlBar !== undefined ? options.controlBar : true;
-    options.controlButtons = options.controlButtons || [ 'fullscreen', 'setting', 'video' ];
-    options.autoHideControlBar = options.autoHideControlBar !== undefined ? options.autoHideControlBar : false;
-    options.autoHideInfospot = options.autoHideInfospot !== undefined ? options.autoHideInfospot : true;
-    options.horizontalView = options.horizontalView !== undefined ? options.horizontalView : false;
-    options.clickTolerance = options.clickTolerance || 10;
-    options.cameraFov = options.cameraFov || 60;
-    options.reverseDragging = options.reverseDragging || false;
-    options.enableReticle = options.enableReticle || false;
-    options.dwellTime = options.dwellTime || 1500;
-    options.autoReticleSelect = options.autoReticleSelect !== undefined ? options.autoReticleSelect : true;
-    options.viewIndicator = options.viewIndicator !== undefined ? options.viewIndicator : false;
-    options.indicatorSize = options.indicatorSize || 30;
-    options.output = options.output ? options.output : 'none';
-    options.autoRotate = options.autoRotate || false;
-    options.autoRotateSpeed = options.autoRotateSpeed || 2.0;
-    options.autoRotateActivationDuration = options.autoRotateActivationDuration || 5000;
+        container: this.setupContainer( options.container ),
+        controlBar: true,
+        controlButtons: [ 'fullscreen', 'setting', 'video' ],
+        autoHideControlBar: false,
+        autoHideInfospot: true,
+        horizontalView: false,
+        clickTolerance: 10,
+        cameraFov: 60,
+        reverseDragging: false,
+        enableReticle: false,
+        dwellTime: 1500,
+        autoReticleSelect: true,
+        viewIndicator: false,
+        indicatorSize: 30,
+        output: null,
+        autoRotate: false,
+        autoRotateSpeed: 2.0,
+        autoRotateActivationDuration: 5000,
+        initialLookAt: new Vector3( 0, 0, -Number.MAX_SAFE_INTEGER ),
+        momentum: true,
+        rotateSpeed: -1.0,
+        dampingFactor: 0.1
 
-    this.options = options;
+    }, options );
 
-    /*
-     * CSS Icon
-     * const styleLoader = new StyleLoader();
-     * styleLoader.inject( 'icono' );
-     */
-
-    // Container
-    if ( options.container ) {
-
-        container = options.container;
-        container._width = container.clientWidth;
-        container._height = container.clientHeight;
-
-    } else {
-
-        container = document.createElement( 'div' );
-        container.classList.add( 'panolens-container' );
-        container.style.width = '100%';
-        container.style.height = '100%';
-        container._width = window.innerWidth;
-        container._height = window.innerHeight;
-        document.body.appendChild( container );
-
-    }
+    const { container, cameraFov, controlBar, controlButtons, viewIndicator, indicatorSize, enableReticle, reverseDragging, output, scene, camera, renderer } = this.options;
+    const { clientWidth, clientHeight } = container;
 
     this.container = container;
-
-    this.camera = options.camera || new PerspectiveCamera( this.options.cameraFov, this.container.clientWidth / this.container.clientHeight, 1, 10000 );
-    this.scene = options.scene || new Scene();
-    this.renderer = options.renderer || new WebGLRenderer( { alpha: true, antialias: false } );
+    this.scene = this.setupScene( scene );
     this.sceneReticle = new Scene();
-
-    this.viewIndicatorSize = this.options.indicatorSize;
-
-    this.reticle = {};
-    this.tempEnableReticle = this.options.enableReticle;
+    this.camera = this.setupCamera( cameraFov, clientWidth / clientHeight, camera );
+    this.renderer = this.setupRenderer( renderer, container );
+    this.reticle = this.addReticle( this.camera, this.sceneReticle );
+    this.control = this.setupControls( this.camera, container );
+    this.effect = this.setupEffects( this.renderer, container );
 
     this.mode = MODES.NORMAL;
-
     this.panorama = null;
     this.widget = null;
-
     this.hoverObject = null;
     this.infospot = null;
     this.pressEntityObject = null;
     this.pressObject = null;
-
     this.raycaster = new Raycaster();
     this.raycasterPoint = new Vector2();
     this.userMouse = new Vector2();
     this.updateCallbacks = [];
     this.requestAnimationId = null;
-
     this.cameraFrustum = new Frustum();
     this.cameraViewProjectionMatrix = new Matrix4();
-
     this.autoRotateRequestId = null;
-
     this.outputDivElement = null;
-
     this.touchSupported = 'ontouchstart' in window || window.DocumentTouch && document instanceof DocumentTouch;
+    this.tweenLeftAnimation = new TWEEN.Tween();
+    this.tweenUpAnimation = new TWEEN.Tween();
+    this.tweenCanvasOpacityOut = new TWEEN.Tween();
+    this.tweenCanvasOpacityIn = new TWEEN.Tween();
+    this.outputEnabled = false;
+    this.viewIndicatorSize = indicatorSize;
+    this.tempEnableReticle = enableReticle;
 
-    // Handler references
-    this.HANDLER_MOUSE_DOWN = this.onMouseDown.bind( this );
-    this.HANDLER_MOUSE_UP = this.onMouseUp.bind( this );
-    this.HANDLER_MOUSE_MOVE = this.onMouseMove.bind( this );
-    this.HANDLER_WINDOW_RESIZE = this.onWindowResize.bind( this );
-    this.HANDLER_KEY_DOWN = this.onKeyDown.bind( this );
-    this.HANDLER_KEY_UP = this.onKeyUp.bind( this );
-    this.HANDLER_TAP = this.onTap.bind( this, {
-        clientX: this.container.clientWidth / 2,
-        clientY: this.container.clientHeight / 2
-    } );
+    this.setupTween();
 
-    // Flag for infospot output
-    this.OUTPUT_INFOSPOT = false;
+    this.handlerMouseUp = this.onMouseUp.bind( this );
+    this.handlerMouseDown = this.onMouseDown.bind( this );
+    this.handlerMouseMove = this.onMouseMove.bind( this );
+    this.handlerWindowResize = this.onWindowResize.bind( this );
+    this.handlerKeyDown = this.onKeyDown.bind( this );
+    this.handlerKeyUp = this.onKeyUp.bind( this );
+    this.handlerTap = this.onTap.bind( this, { clientX: clientWidth / 2, clientY: clientHeight / 2 } );
 
-    // Animations
-    this.tweenLeftAnimation = new Tween.Tween();
-    this.tweenUpAnimation = new Tween.Tween();
+    if ( controlBar ) this.addDefaultControlBar( controlButtons );
+    if ( viewIndicator ) this.addViewIndicator();
+    if ( reverseDragging ) this.reverseDraggingDirection();
+    if ( enableReticle ) this.enableReticleControl(); else this.registerMouseAndTouchEvents(); 
+    if ( output === 'overlay' ) this.addOutputElement();
 
-    // Renderer
-    this.renderer.setPixelRatio( window.devicePixelRatio );
-    this.renderer.setSize( this.container.clientWidth, this.container.clientHeight );
-    this.renderer.setClearColor( 0x000000, 0 );
-    this.renderer.autoClear = false;
-
-    // Append Renderer Element to container
-    this.renderer.domElement.classList.add( 'panolens-canvas' );
-    this.renderer.domElement.style.display = 'block';
-    this.container.style.backgroundColor = '#000';
-    this.container.appendChild( this.renderer.domElement );
-
-    // Camera Controls
-    this.OrbitControls = new OrbitControls( this.camera, this.container );
-    this.OrbitControls.id = 'orbit';
-    this.OrbitControls.minDistance = 1;
-    this.OrbitControls.noPan = true;
-    this.OrbitControls.autoRotate = this.options.autoRotate;
-    this.OrbitControls.autoRotateSpeed = this.options.autoRotateSpeed;
-
-    this.DeviceOrientationControls = new DeviceOrientationControls( this.camera, this.container );
-    this.DeviceOrientationControls.id = 'device-orientation';
-    this.DeviceOrientationControls.enabled = false;
-    this.camera.position.z = 1;
-
-    // Register change event if passiveRenering
-    if ( this.options.passiveRendering ) {
-
-        console.warn( 'passiveRendering is now deprecated' );
-
-    }
-
-    // Controls
-    this.controls = [ this.OrbitControls, this.DeviceOrientationControls ];
-    this.control = this.OrbitControls;
-
-    // Cardboard effect
-    this.CardboardEffect = new CardboardEffect( this.renderer );
-    this.CardboardEffect.setSize( this.container.clientWidth, this.container.clientHeight );
-
-    // Stereo effect
-    this.StereoEffect = new StereoEffect( this.renderer );
-    this.StereoEffect.setSize( this.container.clientWidth, this.container.clientHeight );
-
-    this.effect = this.CardboardEffect;
-
-    // Add default hidden reticle
-    this.addReticle();
-
-    // Lock horizontal view
-    if ( this.options.horizontalView ) {
-        this.OrbitControls.minPolarAngle = Math.PI / 2;
-        this.OrbitControls.maxPolarAngle = Math.PI / 2;
-    }
-
-    // Add Control UI
-    if ( this.options.controlBar !== false ) {
-        this.addDefaultControlBar( this.options.controlButtons );
-    }
-
-    // Add View Indicator
-    if ( this.options.viewIndicator ) {
-        this.addViewIndicator();
-    }
-
-    // Reverse dragging direction
-    if ( this.options.reverseDragging ) {
-        this.reverseDraggingDirection();
-    }
-
-    // Register event if reticle is enabled, otherwise defaults to mouse
-    if ( this.options.enableReticle ) {
-        this.enableReticleControl();
-    } else {
-        this.registerMouseAndTouchEvents();
-    }
-
-    // Output infospot position to an overlay container if specified
-    if ( this.options.output === 'overlay' ) {
-        this.addOutputElement();
-    }
-
-    // Register dom event listeners
     this.registerEventListeners();
 
-    // Animate
     this.animate.call( this );
 
 }
 Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
 
     constructor: Viewer,
+
+    setupScene: function ( scene = new Scene() ) {
+
+        return scene;
+
+    },
+
+    setupCamera: function ( cameraFov, ratio, camera = new PerspectiveCamera( cameraFov, ratio, 1, 10000 ) ) {
+
+        return camera;
+
+    },
+
+    setupRenderer: function ( renderer = new WebGLRenderer( { alpha: true, antialias: false } ), container ) {
+
+        const { clientWidth, clientHeight } = container;
+
+        renderer.setPixelRatio( window.devicePixelRatio );
+        renderer.setSize( clientWidth, clientHeight );
+        renderer.setClearColor( 0x000000, 0 );
+        renderer.autoClear = false;
+        renderer.domElement.classList.add( 'panolens-canvas' );
+        renderer.domElement.style.display = 'block';
+        renderer.domElement.style.transition = 'opacity 0.5s ease';
+        container.style.backgroundColor = '#000';
+        container.appendChild( renderer.domElement );
+
+        return renderer;
+
+    },
+
+    setupControls: function ( camera, container ) {
+
+        const { autoRotate, autoRotateSpeed, horizontalView, momentum, rotateSpeed, dampingFactor } = this.options;
+
+        const orbit = new OrbitControls( camera, container );
+        orbit.id = 'orbit';
+        orbit.index = CONTROLS.ORBIT;
+        orbit.minDistance = 1;
+        orbit.noPan = true;
+        orbit.autoRotate = autoRotate;
+        orbit.autoRotateSpeed = autoRotateSpeed;
+        orbit.momentum = momentum;
+        orbit.rotateSpeed = rotateSpeed;
+        orbit.dampingFactor = dampingFactor;
+
+        if ( horizontalView ) {
+
+            orbit.minPolarAngle = Math.PI / 2;
+            orbit.maxPolarAngle = Math.PI / 2;
+
+        }
+
+        const orient = new DeviceOrientationControls( camera );
+        orient.id = 'device-orientation';
+        orient.index = CONTROLS.DEVICEORIENTATION;
+        orient.enabled = false;
+
+        this.controls = [ orbit, orient ];
+        this.OrbitControls = orbit;
+        this.DeviceOrientationControls = orient;
+
+        return orbit;
+ 
+    },
+
+    setupEffects: function ( renderer, { clientWidth, clientHeight } ) {
+
+        const cardboard = new CardboardEffect( renderer );
+        cardboard.setSize( clientWidth, clientHeight );
+
+        const stereo = new StereoEffect( renderer );
+        stereo.setSize( clientWidth, clientHeight );
+
+        this.CardboardEffect = cardboard;
+        this.StereoEffect = stereo;
+
+        return cardboard;
+
+    },
+
+    setupContainer: function ( container ) {
+
+        if ( container ) {
+
+            container._width = container.clientWidth;
+            container._height = container.clientHeight;
+
+            return container;
+
+        } else {
+
+            const element = document.createElement( 'div' );
+            element.classList.add( 'panolens-container' );
+            element.style.width = '100%';
+            element.style.height = '100%';
+            document.body.appendChild( element );
+            
+            return element;
+            
+        }
+
+    },
+
+    setupTween: function() {
+
+        this.tweenCanvasOpacityOut.to({}, 500).easing(TWEEN.Easing.Exponential.Out);
+        this.tweenCanvasOpacityIn.to({}, 500).easing(TWEEN.Easing.Exponential.Out);
+
+        this.tweenCanvasOpacityOut.chain(this.tweenCanvasOpacityIn);
+
+    },
 
     /**
      * Add an object to the scene
@@ -7629,6 +8502,8 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
      * @instance
      */
     add: function ( object ) {
+
+        const { container, scene, camera, controls } = this;
 
         if ( arguments.length > 1 ) {
 
@@ -7642,7 +8517,7 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
 
         }
 
-        this.scene.add( object );
+        scene.add( object );
 
         // All object added to scene has 'panolens-viewer-handler' event to handle viewer communication
         if ( object.addEventListener ) {
@@ -7651,27 +8526,23 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
 
         }
 
-        // All object added to scene being passed with container
-        if ( object instanceof Panorama && object.dispatchEvent ) {
+        if ( object instanceof Panorama ) {
 
-            object.dispatchEvent( { type: 'panolens-container', container: this.container } );
+            // Dispatch viewer variables to panorama
+            object.dispatchEvent( { type: 'panolens-container', container } );
+            object.dispatchEvent( { type: 'panolens-scene', scene } );
+            object.dispatchEvent( { type: 'panolens-camera', camera } );
+            object.dispatchEvent( { type: 'panolens-controls', controls } );
 
-        }
-
-        if ( object instanceof CameraPanorama ) {
-
-            object.dispatchEvent( { type: 'panolens-scene', scene: this.scene } );
-
-        }
-
-        // Hookup default panorama event listeners
-        if ( object.type === 'panorama' ) {
-
+            // Hookup default panorama event listeners
             this.addPanoramaEventListener( object );
 
             if ( !this.panorama ) {
 
+                const { initialLookAt } = this.options;
+
                 this.setPanorama( object );
+                this.setControlCenter( initialLookAt );
 
             }
 
@@ -7731,26 +8602,53 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
      * @memberOf Viewer
      * @instance
      */
-    setPanorama: function ( pano ) {
+    setPanorama: function ( ep ) {
 
-        const leavingPanorama = this.panorama;
+        const lp = this.panorama;
 
-        if ( pano.type === 'panorama' && leavingPanorama !== pano ) {
+        if ( ep instanceof Panorama && lp !== ep ) {
 
             // Clear exisiting infospot
             this.hideInfospot();
 
-            const afterEnterComplete = function () {
+            const onSwitch = () => {
 
-                if ( leavingPanorama ) { leavingPanorama.onLeave(); }
-                pano.removeEventListener( 'enter-fade-start', afterEnterComplete );
+                if ( lp ) { 
+                    
+                    lp.onLeave(); 
+                
+                } else {
+
+                    ep.fadeIn();
+
+                }
 
             };
 
-            pano.addEventListener( 'enter-fade-start', afterEnterComplete );
+            if ( lp ) {
 
-            // Assign and enter panorama
-            (this.panorama = pano).onEnter();
+                const onLeaveComplete = () => {
+
+                    ep.fadeIn();
+                    lp.removeEventListener( 'leave-complete', onLeaveComplete );
+    
+                };
+
+                lp.addEventListener( 'leave-complete', onLeaveComplete );
+
+            }
+
+            const onReady = () => {
+
+                onSwitch();
+                ep.removeEventListener( 'ready', onReady );
+
+            };
+
+            ep.addEventListener( 'ready', onReady );
+
+            this.panorama = ep;
+            this.panorama.onEnter();
 			
         }
 
@@ -8197,7 +9095,7 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
     addPanoramaEventListener: function ( pano ) {
 
         // Set camera control on every panorama
-        pano.addEventListener( 'enter-fade-start', this.setCameraControl.bind( this ) );
+        pano.addEventListener( 'enter', this.setCameraControl.bind( this ) );
 
         // Show and hide widget event only when it's VideoPanorama
         if ( pano instanceof VideoPanorama ) {
@@ -8224,7 +9122,7 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
      */
     setCameraControl: function () {
 
-        this.OrbitControls.target.copy( this.panorama.position );
+        if( this.panorama ) this.OrbitControls.target.copy( this.panorama.position );
 
     },
 
@@ -8343,43 +9241,79 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
     },
 
     /**
+     * Get raycasted point of current panorama
+     * @memberof Viewer
+     * @instance
+     * @returns {THREE.Vector3}
+     */
+    getRaycastViewCenter: function () {
+
+        const raycaster = new Raycaster();
+        raycaster.setFromCamera( new Vector2( 0, 0 ), this.camera );
+        const intersect = raycaster.intersectObject( this.panorama );
+
+        return intersect.length > 0 ? intersect[ 0 ].point : new Vector3( 0, 0, -1 );
+
+    },
+
+    /**
      * Enable control by index
      * @param  {CONTROLS} index - Index of camera control
      * @memberOf Viewer
      * @instance
      */
-    enableControl: function ( index ) {
+    enableControl: function ( index = CONTROLS.ORBIT ) {
 
-        index = ( index >= 0 && index < this.controls.length ) ? index : 0;
+        const { control: { index: currentControlIndex }, OrbitControls, DeviceOrientationControls, container } = this;
+        const canvas = container.querySelector('canvas');
 
-        this.control.enabled = false;
+        if( index === currentControlIndex ) {                   // ignore
 
-        this.control = this.controls[ index ];
+            return;
 
-        this.control.enabled = true;
+        } else if( index === CONTROLS.DEVICEORIENTATION ) {     // device orientation
 
-        switch ( index ) {
+            this.tweenCanvasOpacityOut.onStart(() => {
+                OrbitControls.enabled = false;
+                DeviceOrientationControls.enabled = false;
+                canvas.style.opacity = 0;
+            });
 
-        case CONTROLS.ORBIT:
+            this.tweenCanvasOpacityIn.onStart(() => {
+                OrbitControls.enabled = true;
+                DeviceOrientationControls.connect();
+                canvas.style.opacity = 1;
+            });
 
-            this.camera.position.copy( this.panorama.position );
-            this.camera.position.z += 1;
+            this.tweenCanvasOpacityOut.start();
 
-            break;
 
-        case CONTROLS.DEVICEORIENTATION:
+        } else {
 
-            this.camera.position.copy( this.panorama.position );
+            const { getAlpha, getBeta } = DeviceOrientationControls;
+            const alpha = -getAlpha();
+            const beta = Math.PI / 2 - getBeta();
+            const center = this.getRaycastViewCenter();
 
-            break;
+            this.tweenCanvasOpacityOut.onStart(() => {
+                OrbitControls.enabled = false;
+                DeviceOrientationControls.disconnect();
+                canvas.style.opacity = 0;
+            });
 
-        default:
+            this.tweenCanvasOpacityIn.onStart(function() {
+                OrbitControls.enabled = true;
+                this.rotateControlLeft(alpha);
+                this.rotateControlUp(beta);
+                this.setControlCenter(center);
+                canvas.style.opacity = 1;
+            }.bind(this));
 
-            break;
+            this.tweenCanvasOpacityOut.start();
+
         }
 
-        this.control.update();
-
+        this.control = this.controls[ index ];
         this.activateWidgetItem( index, undefined );
 
     },
@@ -8449,8 +9383,8 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
      */
     reverseDraggingDirection: function () {
 
+        console.warn('reverseDragging option is deprecated. Please use rotateSpeed to indicate strength and direction');
         this.OrbitControls.rotateSpeed *= -1;
-        this.OrbitControls.momentumScalingFactor *= -1;
 
     },
 
@@ -8459,12 +9393,70 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
      * @memberOf Viewer
      * @instance
      */
-    addReticle: function () {
+    addReticle: function ( camera, sceneReticle ) {
 
-        this.reticle = new Reticle( 0xffffff, true, this.options.dwellTime );
-        this.reticle.hide();
-        this.camera.add( this.reticle );
-        this.sceneReticle.add( this.camera );
+        const reticle = new Reticle( 0xffffff, true, this.options.dwellTime );
+        reticle.hide();
+        camera.add( reticle );
+        sceneReticle.add( camera );
+
+        return reticle;
+
+    },
+
+    rotateControlLeft: function ( left ) {
+
+        this.OrbitControls.rotateLeftStatic( left );
+
+    },
+
+    rotateControlUp: function ( up ) {
+
+        this.OrbitControls.rotateUpStatic( up );
+
+    },
+
+    rotateOrbitControl: function ( left, up ) {
+
+        this.rotateControlLeft( left );
+        this.rotateControlUp( up );
+
+    },
+
+    calculateCameraDirectionDelta: function ( vector ) {
+
+        let ha, va, chv, cvv, hv, vv, vptc;
+
+        chv = this.camera.getWorldDirection( new Vector3() );
+        cvv = chv.clone();
+
+        vptc = this.panorama.getWorldPosition( new Vector3() ).sub( this.camera.getWorldPosition( new Vector3() ) );
+
+        hv = vector.clone();
+        hv.add( vptc ).normalize();
+        vv = hv.clone();
+
+        chv.y = 0;
+        hv.y = 0;
+
+        ha = Math.atan2( hv.z, hv.x ) - Math.atan2( chv.z, chv.x );
+        ha = ha > Math.PI ? ha - 2 * Math.PI : ha;
+        ha = ha < -Math.PI ? ha + 2 * Math.PI : ha;
+        va = Math.abs( cvv.angleTo( chv ) + ( cvv.y * vv.y <= 0 ? vv.angleTo( hv ) : -vv.angleTo( hv ) ) );
+        va *= vv.y < cvv.y ? 1 : -1;
+
+        return { left: ha, up: va };
+
+    },
+
+    /**
+     * Set control center
+     * @param {THREE.Vector3} vector - Vector to be looked at the center
+     */
+    setControlCenter: function( vector = this.options.initialLookAt ) {
+
+        const { left, up } = this.calculateCameraDirectionDelta( vector );
+        this.rotateOrbitControl( left, up );
 
     },
 
@@ -8478,68 +9470,41 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
      */
     tweenControlCenter: function ( vector, duration, easing ) {
 
-        if ( this.control !== this.OrbitControls ) {
-
-            return;
-
-        }
-
-        // Pass in arguments as array
         if ( vector instanceof Array ) {
 
-            duration = vector[ 1 ];
             easing = vector[ 2 ];
+            duration = vector[ 1 ];
             vector = vector[ 0 ];
 
         }
 
         duration = duration !== undefined ? duration : 1000;
-        easing = easing || Tween.Easing.Exponential.Out;
+        easing = easing || TWEEN.Easing.Exponential.Out;
 
-        let scope, ha, va, chv, cvv, hv, vv, vptc, ov, nv;
+        const { left, up } = this.calculateCameraDirectionDelta( vector );
+        const rotateControlLeft = this.rotateControlLeft.bind( this );
+        const rotateControlUp = this.rotateControlUp.bind( this );
 
-        scope = this;
-
-        chv = this.camera.getWorldDirection( new Vector3() );
-        cvv = chv.clone();
-
-        vptc = this.panorama.getWorldPosition( new Vector3() ).sub( this.camera.getWorldPosition( new Vector3() ) );
-
-        hv = vector.clone();
-        // Scale effect
-        hv.x *= -1;
-        hv.add( vptc ).normalize();
-        vv = hv.clone();
-
-        chv.y = 0;
-        hv.y = 0;
-
-        ha = Math.atan2( hv.z, hv.x ) - Math.atan2( chv.z, chv.x );
-        ha = ha > Math.PI ? ha - 2 * Math.PI : ha;
-        ha = ha < -Math.PI ? ha + 2 * Math.PI : ha;
-        va = Math.abs( cvv.angleTo( chv ) + ( cvv.y * vv.y <= 0 ? vv.angleTo( hv ) : -vv.angleTo( hv ) ) );
-        va *= vv.y < cvv.y ? 1 : -1;
-
-        ov = { left: 0, up: 0 };
-        nv = { left: 0, up: 0 };
+        const ov = { left: 0, up: 0 };
+        const nv = { left: 0, up: 0 };
 
         this.tweenLeftAnimation.stop();
         this.tweenUpAnimation.stop();
 
-        this.tweenLeftAnimation = new Tween.Tween( ov )
-            .to( { left: ha }, duration )
+        this.tweenLeftAnimation = new TWEEN.Tween( ov )
+            .to( { left }, duration )
             .easing( easing )
             .onUpdate(function(ov){
-                scope.control.rotateLeft( ov.left - nv.left );
+                rotateControlLeft( ov.left - nv.left );
                 nv.left = ov.left;
             })
             .start();
 
-        this.tweenUpAnimation = new Tween.Tween( ov )
-            .to( { up: va }, duration )
+        this.tweenUpAnimation = new TWEEN.Tween( ov )
+            .to( { up }, duration )
             .easing( easing )
             .onUpdate(function(ov){
-                scope.control.rotateUp( ov.up - nv.up );
+                rotateControlUp( ov.up - nv.up );
                 nv.up = ov.up;
             })
             .start();
@@ -8556,28 +9521,7 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
      */
     tweenControlCenterByObject: function ( object, duration, easing ) {
 
-        let isUnderScalePlaceHolder = false;
-
-        object.traverseAncestors( function ( ancestor ) {
-
-            if ( ancestor.scalePlaceHolder ) {
-
-                isUnderScalePlaceHolder = true;
-
-            }
-        } );
-
-        if ( isUnderScalePlaceHolder ) {
-
-            const invertXVector = new Vector3( -1, 1, 1 );
-
-            this.tweenControlCenter( object.getWorldPosition( new Vector3() ).multiply( invertXVector ), duration, easing );
-
-        } else {
-
-            this.tweenControlCenter( object.getWorldPosition( new Vector3() ), duration, easing );
-
-        }
+        this.tweenControlCenter( object.getWorldPosition( new Vector3() ), duration, easing );
 
     },
 
@@ -8603,8 +9547,6 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
             this.container._height = windowHeight;
 
         } else {
-
-            const isAndroid = /(android)/i.test(window.navigator.userAgent);
 
             const adjustWidth = isAndroid 
                 ? Math.min(document.documentElement.clientWidth, window.innerWidth || 0) 
@@ -8683,9 +9625,8 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
         if ( intersects.length > 0 ) {
 
             const point = intersects[ 0 ].point.clone();
-            const converter = new Vector3( -1, 1, 1 );
             const world = this.panorama.getWorldPosition( new Vector3() );
-            point.sub( world ).multiply( converter );
+            point.sub( world );
 
             const message = `${point.x.toFixed(2)}, ${point.y.toFixed(2)}, ${point.z.toFixed(2)}`;
 
@@ -8699,9 +9640,6 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
 
             case 'overlay':
                 this.outputDivElement.textContent = message;
-                break;
-
-            default:
                 break;
 
             }
@@ -8832,7 +9770,7 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
         }
 
         // output infospot information
-        if ( event.type !== 'mousedown' && this.touchSupported || this.OUTPUT_INFOSPOT ) { 
+        if ( event.type !== 'mousedown' && this.touchSupported || this.outputEnabled ) { 
 
             this.outputPosition(); 
 
@@ -8867,7 +9805,7 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
         }
 
         if ( type === 'click' ) {
-
+            
             this.panorama.dispatchEvent( { type: 'click', intersects: intersects, mouseEvent: event } );
 
             if ( intersect_entity && intersect_entity.dispatchEvent ) {
@@ -9103,7 +10041,7 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
 
         if ( this.options.output && this.options.output !== 'none' && event.key === 'Control' ) {
 
-            this.OUTPUT_INFOSPOT = true;
+            this.outputEnabled = true;
 
         }
 
@@ -9117,7 +10055,7 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
      */
     onKeyUp: function () {
 
-        this.OUTPUT_INFOSPOT = false;
+        this.outputEnabled = false;
 
     },
 
@@ -9128,26 +10066,37 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
      */
     update: function () {
 
-        Tween.update();
+        const { scene, control, OrbitControls, DeviceOrientationControls } = this;
 
-        this.updateCallbacks.forEach( function( callback ){ callback(); } );
+        // Tween Update
+        TWEEN.update();
 
-        this.control.update();
+        // Callbacks Update
+        this.updateCallbacks.forEach( callback => callback() );
 
-        this.scene.traverse( function( child ){
+        // Control Update
+        if ( OrbitControls.enabled ) OrbitControls.update();
+        if ( control === DeviceOrientationControls ) {
+            DeviceOrientationControls.update(OrbitControls.publicSphericalDelta.data);
+        }
+
+        // Infospot Update
+        const v3 = new Vector3();
+
+        scene.traverse( function( child ){
             if ( child instanceof Infospot 
-				&& child.element 
-				&& ( this.hoverObject === child 
-					|| child.element.style.display !== 'none' 
-					|| (child.element.left && child.element.left.style.display !== 'none')
-					|| (child.element.right && child.element.right.style.display !== 'none') ) ) {
+                && child.element 
+                && ( this.hoverObject === child 
+                    || child.element.style.display !== 'none' 
+                    || (child.element.left && child.element.left.style.display !== 'none')
+                    || (child.element.right && child.element.right.style.display !== 'none') ) ) {
                 if ( this.checkSpriteInViewport( child ) ) {
-                    const { x, y } = this.getScreenVector( child.getWorldPosition( new Vector3() ) );
+                    const { x, y } = this.getScreenVector( child.getWorldPosition( v3 ) );
                     child.translateElement( x, y );
                 } else {
                     child.onDismiss();
                 }
-				
+                
             }
         }.bind( this ) );
 
@@ -9164,7 +10113,7 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
         if ( this.mode === MODES.CARDBOARD || this.mode === MODES.STEREO ) {
 
             this.renderer.clear();
-            this.effect.render( this.scene, this.camera );
+            this.effect.render( this.scene, this.camera, this.panorama );
             this.effect.render( this.sceneReticle, this.camera );
 			
 
@@ -9213,11 +10162,11 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
 
         const options = { passive: false };
 
-        this.container.addEventListener( 'mousedown' , 	this.HANDLER_MOUSE_DOWN, options );
-        this.container.addEventListener( 'mousemove' , 	this.HANDLER_MOUSE_MOVE, options );
-        this.container.addEventListener( 'mouseup'	 , 	this.HANDLER_MOUSE_UP  , options );
-        this.container.addEventListener( 'touchstart', 	this.HANDLER_MOUSE_DOWN, options );
-        this.container.addEventListener( 'touchend'  , 	this.HANDLER_MOUSE_UP  , options );
+        this.container.addEventListener( 'mousedown' , 	this.handlerMouseDown, options );
+        this.container.addEventListener( 'mousemove' , 	this.handlerMouseMove, options );
+        this.container.addEventListener( 'mouseup'	 , 	this.handlerMouseUp  , options );
+        this.container.addEventListener( 'touchstart', 	this.handlerMouseDown, options );
+        this.container.addEventListener( 'touchend'  , 	this.handlerMouseUp  , options );
 
     },
 
@@ -9228,11 +10177,11 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
      */
     unregisterMouseAndTouchEvents: function () {
 
-        this.container.removeEventListener( 'mousedown' ,  this.HANDLER_MOUSE_DOWN, false );
-        this.container.removeEventListener( 'mousemove' ,  this.HANDLER_MOUSE_MOVE, false );
-        this.container.removeEventListener( 'mouseup'	,  this.HANDLER_MOUSE_UP  , false );
-        this.container.removeEventListener( 'touchstart',  this.HANDLER_MOUSE_DOWN, false );
-        this.container.removeEventListener( 'touchend'  ,  this.HANDLER_MOUSE_UP  , false );
+        this.container.removeEventListener( 'mousedown' ,  this.handlerMouseDown, false );
+        this.container.removeEventListener( 'mousemove' ,  this.handlerMouseMove, false );
+        this.container.removeEventListener( 'mouseup'	,  this.handlerMouseUp  , false );
+        this.container.removeEventListener( 'touchstart',  this.handlerMouseDown, false );
+        this.container.removeEventListener( 'touchend'  ,  this.handlerMouseUp  , false );
 
     },
 
@@ -9243,7 +10192,7 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
      */
     registerReticleEvent: function () {
 
-        this.addUpdateCallback( this.HANDLER_TAP );
+        this.addUpdateCallback( this.handlerTap );
 
     },
 
@@ -9254,7 +10203,7 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
      */
     unregisterReticleEvent: function () {
 
-        this.removeUpdateCallback( this.HANDLER_TAP );
+        this.removeUpdateCallback( this.handlerTap );
 
     },
 
@@ -9268,9 +10217,9 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
         const clientX = this.container.clientWidth / 2 + this.container.offsetLeft;
         const clientY = this.container.clientHeight / 2;
 
-        this.removeUpdateCallback( this.HANDLER_TAP );
-        this.HANDLER_TAP = this.onTap.bind( this, { clientX, clientY } );
-        this.addUpdateCallback( this.HANDLER_TAP );
+        this.removeUpdateCallback( this.handlerTap );
+        this.handlerTap = this.onTap.bind( this, { clientX, clientY } );
+        this.addUpdateCallback( this.handlerTap );
 
     },
 
@@ -9282,11 +10231,11 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
     registerEventListeners: function () {
 
         // Resize Event
-        window.addEventListener( 'resize' , this.HANDLER_WINDOW_RESIZE, true );
+        window.addEventListener( 'resize' , this.handlerWindowResize, true );
 
         // Keyboard Event
-        window.addEventListener( 'keydown', this.HANDLER_KEY_DOWN, true );
-        window.addEventListener( 'keyup'  , this.HANDLER_KEY_UP	 , true );
+        window.addEventListener( 'keydown', this.handlerKeyDown, true );
+        window.addEventListener( 'keyup'  , this.handlerKeyUp	 , true );
 
     },
 
@@ -9298,11 +10247,11 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
     unregisterEventListeners: function () {
 
         // Resize Event
-        window.removeEventListener( 'resize' , this.HANDLER_WINDOW_RESIZE, true );
+        window.removeEventListener( 'resize' , this.handlerWindowResize, true );
 
         // Keyboard Event
-        window.removeEventListener( 'keydown', this.HANDLER_KEY_DOWN, true );
-        window.removeEventListener( 'keyup'  , this.HANDLER_KEY_UP  , true );
+        window.removeEventListener( 'keydown', this.handlerKeyDown, true );
+        window.removeEventListener( 'keyup'  , this.handlerKeyUp  , true );
 
     },
 
@@ -9312,6 +10261,8 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
      * @instance
      */
     dispose: function () {
+
+        this.disableAutoRate();
 
         this.tweenLeftAnimation.stop();
         this.tweenUpAnimation.stop();
@@ -9381,11 +10332,25 @@ Viewer.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
      */
     onPanoramaDispose: function ( panorama ) {
 
+        const { scene } = this;
+        const infospotDisposeMapper = infospot => infospot.toPanorama !== panorama ? infospot : infospot.dispose();
+
         if ( panorama instanceof VideoPanorama ) {
 
             this.hideVideoWidget();
 
         }
+
+        // traverse the scene to find association
+        scene.traverse( object => {
+
+            if ( object instanceof Panorama ) {
+
+                object.linkedSpots = object.linkedSpots.map( infospotDisposeMapper ).filter( infospot => !!infospot );
+
+            }
+
+        } );
 
         if ( panorama === this.panorama ) {
 
@@ -9530,6 +10495,6 @@ if ( REVISION$1 != THREE_REVISION ) {
  * @author pchen66
  * @namespace PANOLENS
  */
-window.TWEEN = Tween;
+window.TWEEN = TWEEN;
 
-export { BasicPanorama, CONTROLS, CameraPanorama, CubePanorama, CubeTextureLoader, DataImage, EmptyPanorama, GoogleStreetviewPanorama, ImageLittlePlanet, ImageLoader, ImagePanorama, Infospot, LittlePlanet, MODES, Media, Panorama, REVISION, Reticle, THREE_REVISION, THREE_VERSION, TextureLoader, VERSION, VideoPanorama, Viewer, Widget };
+export { BasicPanorama, CONTROLS, CameraPanorama, CubePanorama, CubeTextureLoader, DataImage, EmptyPanorama, GoogleStreetviewPanorama, ImageLittlePlanet, ImageLoader, ImagePanorama, Infospot, LittlePlanet, MODES, Media, PanoMomentPanorama, Panorama, REVISION, Reticle, STEREOFORMAT, Stereo, StereoImagePanorama, StereoVideoPanorama, THREE_REVISION, THREE_VERSION, TextureLoader, VERSION, VideoPanorama, Viewer, Widget };

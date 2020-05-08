@@ -9,24 +9,10 @@ import * as THREE from 'three';
  */
 function CubePanorama ( images = [] ){
 
-    const edgeLength = 10000;
-    const shader = Object.assign( {}, THREE.ShaderLib[ 'cube' ] );
-    const geometry = new THREE.BoxBufferGeometry( edgeLength, edgeLength, edgeLength );
-    const material = new THREE.ShaderMaterial( {
-
-        fragmentShader: shader.fragmentShader,
-        vertexShader: shader.vertexShader,
-        uniforms: shader.uniforms,
-        side: THREE.BackSide,
-        transparent: true
-
-    } );
-
-    Panorama.call( this, geometry, material );
+    Panorama.call( this );
 
     this.images = images;
-    this.edgeLength = edgeLength;
-    this.material.uniforms.opacity.value = 0;
+    this.type = 'cube_panorama';
 
 }
 
@@ -35,11 +21,40 @@ CubePanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
     constructor: CubePanorama,
 
     /**
+     * Create material
+     * @memberOf CubePanorama
+     * @instance
+     */
+    createMaterial: function() {
+
+        const { fragmentShader, vertexShader, uniforms: _uniforms } = THREE.ShaderLib[ 'cube' ];
+        const uniforms = THREE.UniformsUtils.clone( _uniforms );
+        
+        uniforms.opacity.value = 0;
+
+        const material = new THREE.ShaderMaterial( {
+
+            fragmentShader,
+            vertexShader,
+            uniforms,
+            side: THREE.BackSide,
+            transparent: true,
+            opacity: 0
+
+        } );
+
+        return material;
+
+    },
+
+    /**
      * Load 6 images and bind listeners
      * @memberOf CubePanorama
      * @instance
      */
     load: function () {
+
+        Panorama.prototype.load.call( this, false );
 
         CubeTextureLoader.load( 	
 
@@ -64,6 +79,12 @@ CubePanorama.prototype = Object.assign( Object.create( Panorama.prototype ), {
         this.material.uniforms[ 'tCube' ].value = texture;
 
         Panorama.prototype.onLoad.call( this );
+
+    },
+
+    getTexture: function () {
+
+        return this.material.uniforms.tCube.value;
 
     },
 
