@@ -838,6 +838,9 @@
       }
 
       function setStopTourButton () {
+        if (viewer.getControlId() == "device-orientation") {
+          viewer.enableControl(0);
+        }
         tourToggleButton.style.display="inline-grid";
         if (playButtonVisible) {
           playButtonVisible = false;
@@ -860,10 +863,6 @@
       }
 
       function onEnter () {
-        
-        // if (viewer.getControlId() == "device-orientation") {
-        //   viewer.enableControl(0);
-        // }
 
         $('#menu').find('a').removeClass("currentlySelected")
 
