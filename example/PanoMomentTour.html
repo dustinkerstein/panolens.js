@@ -1064,6 +1064,9 @@
       }
 
       function onFocus () {
+        if (viewer.getControlId() == "device-orientation") {
+          viewer.enableControl(0);
+        }
         viewer.tweenControlCenterByObject( this, 4000, TWEEN.Easing[ 'Exponential' ][ 'Out' ] );
         this.onClick({mouseEvent: {clientX: 0, clientY:0}}) // Bit of a hack to force the hover event
       }
