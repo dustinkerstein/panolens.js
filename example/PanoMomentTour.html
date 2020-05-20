@@ -830,6 +830,8 @@
       }
 
       function setPlayTourButton () {
+        viewer.tweenLeftAnimation.stop();
+        viewer.tweenUpAnimation.stop();
         tourToggleButton.style.display="inline-grid";
         if (!playButtonVisible) {
           playButtonVisible = true;
