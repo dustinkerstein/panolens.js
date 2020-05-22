@@ -581,7 +581,8 @@
       var setTimeoutIDArray = [];
 
       var currentVariation;
-      if (navigator.userAgent.match(/Android/i) || /Mobile Safari/i.test(navigator.userAgent.toLowerCase())) {
+
+      if (navigator.userAgent.match(/Android/i) || navigator.userAgent.match(/iPhone|iPad|iPod/i)) {
         currentVariation = 100;
       } else {
         currentVariation = 101; 

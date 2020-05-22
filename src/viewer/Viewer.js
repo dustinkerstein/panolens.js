@@ -44,7 +44,7 @@ import TWEEN from '@tweenjs/tween.js';
  * @param {number} [options.dampingFactor=.1] - Damping factor
  */
 
-const isSafari = (/Mobile Safari/i.test(navigator.userAgent.toLowerCase()) || (/Safari/i.test(navigator.userAgent.toLowerCase()) && !/Chrome/i.test(navigator.userAgent.toLowerCase()))) ? true : false;
+const isSafari = (navigator.userAgent.match(/iPhone|iPad|iPod/i) || (/Safari/i.test(navigator.userAgent.toLowerCase()) && !/Chrome/i.test(navigator.userAgent.toLowerCase()))) ? true : false;
 
 function Viewer ( options = {} ) {
 
