@@ -580,45 +580,52 @@
 
       var setTimeoutIDArray = [];
 
+      var currentVariation;
+      if (navigator.userAgent.match(/Android/i) || /Mobile Safari/i.test(navigator.userAgent.toLowerCase())) {
+        currentVariation = 100;
+      } else {
+        currentVariation = 101; 
+      }
+
       var panomoment0_identifier = {
         moment_id: "5a90ce21d3df99000e981d11",
-        variation: 101, // Should detect mobile / desktop and change default quality.
+        variation: currentVariation,
         public_api_key: "63b130be-2f20-40a2-8211-355b607f340a"
       };
 
       var panomoment1_identifier = {
         moment_id: "58a5d20affe5e3000bdb34c0",
-        variation: 101,
+        variation: currentVariation,
         public_api_key: "63b130be-2f20-40a2-8211-355b607f340a"
       };
 
       var panomoment2_identifier = {
         moment_id: "594034259456f0000ba62f29",
-        variation: 101,
+        variation: currentVariation,
         public_api_key: "63b130be-2f20-40a2-8211-355b607f340a"
       };
 
       var panomoment3_identifier = {
         moment_id: "58a5f6dd482e59000ba26fee",
-        variation: 101,
+        variation: currentVariation,
         public_api_key: "63b130be-2f20-40a2-8211-355b607f340a"
       };
 
       var panomomentLinked1_identifier = {
         moment_id: "5abec35ff96ff2000e8cccbe",
-        variation: 101,
+        variation: currentVariation,
         public_api_key: "63b130be-2f20-40a2-8211-355b607f340a"
       };
 
       var panomoment5_identifier = {
         moment_id: "5e95b8bf9e48cf0016e5d942",
-        variation: 101,
+        variation: currentVariation,
         public_api_key: "63b130be-2f20-40a2-8211-355b607f340a"
       };
 
       var panomoment6_identifier = {
         moment_id: "5a9060988ac76a000ec9ee74",
-        variation: 101,
+        variation: currentVariation,
         public_api_key: "63b130be-2f20-40a2-8211-355b607f340a"
       };
 
