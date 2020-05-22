@@ -43,6 +43,9 @@ import TWEEN from '@tweenjs/tween.js';
  * @param {number} [options.rotateSpeed=-1.0] - Drag Rotation Speed
  * @param {number} [options.dampingFactor=.1] - Damping factor
  */
+
+const isSafari = (/Mobile Safari/i.test(navigator.userAgent.toLowerCase()) || (/Safari/i.test(navigator.userAgent.toLowerCase()) && !/Chrome/i.test(navigator.userAgent.toLowerCase()))) ? true : false;
+
 function Viewer ( options = {} ) {
 
     this.options = Object.assign( {
@@ -127,7 +130,11 @@ function Viewer ( options = {} ) {
 
     this.registerEventListeners();
 
-    this.animate.call( this );
+    if (isSafari) {
+        window.setInterval(this.animate.bind( this ),1000/60); // Workaround for this issue - https://bugs.webkit.org/show_bug.cgi?id=211624 and this issue - https://bugs.webkit.org/show_bug.cgi?id=212260
+    } else {
+        this.animate.call( this );
+    }
 
 };
 
@@ -1911,7 +1918,9 @@ Viewer.prototype = Object.assign( Object.create( THREE.EventDispatcher.prototype
      */
     animate: function () {
 
-        this.requestAnimationId = window.requestAnimationFrame( this.animate.bind( this ) );
+        if (!isSafari) {
+            this.requestAnimationId = window.requestAnimationFrame( this.animate.bind( this ) );
+        }
 
         this.onChange();
 
