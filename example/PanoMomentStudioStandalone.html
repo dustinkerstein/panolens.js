@@ -905,27 +905,29 @@ R;e.THREE_REVISION="105";e.THREE_VERSION=za;e.TextureLoader=aa;e.VERSION="0.11.0
         switch(this) {
           case panomoment0:
             $('#menu').find('#panomoment0 a').addClass("currentlySelected");
+            currentViewerChildIndex = 0;
             break;
           case panomoment1:
             $('#menu').find('#panomoment1 a').addClass("currentlySelected");
+            currentViewerChildIndex = 1;
             break;
           case panomoment2:
             $('#menu').find('#panomoment2 a').addClass("currentlySelected");
+            currentViewerChildIndex = 2;
             break;
           case panomoment3:
             $('#menu').find('#panomoment3 a').addClass("currentlySelected");
+            currentViewerChildIndex = 3;
             break;
           case panomoment4:
             $('#menu').find('#panomoment4 a').addClass("currentlySelected");
+            currentViewerChildIndex = 4;
             break;
           case panomoment5:
             $('#menu').find('#panomoment5 a').addClass("currentlySelected");
+            currentViewerChildIndex = 5;
             break;
         }
-
-        const matchingPanorama = (element) => element == this;
-        currentViewerChildIndex = viewer.scene.children.findIndex(matchingPanorama);
-        console.log(currentViewerChildIndex)
 
       }
 
@@ -1085,14 +1087,14 @@ R;e.THREE_REVISION="105";e.THREE_VERSION=za;e.TextureLoader=aa;e.VERSION="0.11.0
       panomoment0.addEventListener( 'panomoments.ready', onPanoMomentReady );
       panomoment0.addEventListener( 'enter', onEnter );
       panomoment0.addEventListener( 'leave', onLeave );
-      panomoment0.add( hiddenInfospot1, hiddenInfospot2, hiddenInfospot3, buyButton1);
+      // panomoment0.add( hiddenInfospot1, hiddenInfospot2, hiddenInfospot3, buyButton1);
 
       panomoment1 = new PANOLENS.PanoMomentRegular( panomoment1_identifier, false );
       panomoment1.addEventListener( 'load-start', onPanoMomentLoad );      
       panomoment1.addEventListener( 'panomoments.ready', onPanoMomentReady );
       panomoment1.addEventListener( 'enter', onEnter );
       panomoment1.addEventListener( 'leave', onLeave );
-      panomoment1.add( storyInfospot1, storyInfospot2, storyInfospot3, storyInfospot4 );
+      // panomoment1.add( storyInfospot1, storyInfospot2, storyInfospot3, storyInfospot4 );
 
       panomoment2 = new PANOLENS.PanoMomentRegular( panomoment2_identifier, false );
       panomoment2.addEventListener( 'load-start', onPanoMomentLoad );
@@ -1162,20 +1164,20 @@ R;e.THREE_REVISION="105";e.THREE_VERSION=za;e.TextureLoader=aa;e.VERSION="0.11.0
         viewer.setPanorama( targetPanorama );
       }
 
-      function loadNext () {
-        var newIndex = currentViewerChildIndex + 1;
-        if (newIndex >= viewer.scene.children.length) {
-          newIndex = 0;
+      function loadNext () { // BROKEN
+        currentViewerChildIndex = currentViewerChildIndex + 1;
+        if (currentViewerChildIndex >= viewer.scene.children.length) {
+          currentViewerChildIndex = 0;
         }
-        viewer.setPanorama(viewer.scene.children[newIndex]);
+        viewer.setPanorama(viewer.scene.children[currentViewerChildIndex]);
       }
 
       function loadPrevious() {
-        var newIndex = currentViewerChildIndex - 1;
-        if (newIndex < 0) {
-          newIndex = viewer.scene.children.length - 1;
+        currentViewerChildIndex = currentViewerChildIndex - 1;
+        if (currentViewerChildIndex < 0) {
+          currentViewerChildIndex = viewer.scene.children.length - 1;
         }
-        viewer.setPanorama(viewer.scene.children[newIndex]);
+        viewer.setPanorama(viewer.scene.children[currentViewerChildIndex]);
       }
 
       document.querySelector( '#panomoment0' ).addEventListener( 'click', onButtonClick.bind( this, panomoment0 ) );
