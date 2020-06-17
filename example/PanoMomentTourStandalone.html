@@ -703,7 +703,11 @@ R;e.THREE_REVISION="105";e.THREE_VERSION=za;e.TextureLoader=aa;e.VERSION="0.11.0
 
       import { BallSpinerLoader } from 'https://files.panomoments.com/BallSpinner.js'
 
-      document.domain = "panomoments.com";
+      try {
+        document.domain = "panomoments.com";
+      } catch (e) {
+        console.log(e);
+      }
 
       // Create a Stripe client.
       var stripe = Stripe('pk_test_TYooMQauvdEDq54NiTphI7jx');
